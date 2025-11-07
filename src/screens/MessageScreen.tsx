@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
+import { messageService, Message } from '../services/MessageService';
 import { Timestamp } from 'firebase/firestore';
 
 // Chat Preview Card Component
@@ -62,7 +63,7 @@ const ChatPreviewCard: React.FC<{
 
 // Message Bubble Component
 const MessageBubble: React.FC<{
-  message: any;
+  message: Message;
   isOwnMessage: boolean;
 }> = ({ message, isOwnMessage }) => {
   return (
@@ -71,7 +72,7 @@ const MessageBubble: React.FC<{
         {message.text}
       </Text>
       <Text style={[styles.messageTime, isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime]}>
-        {getTimeAgo(message.timestamp)}
+        {getTimeAgo(message.createdAt)}
       </Text>
     </View>
   );
@@ -111,13 +112,34 @@ export const MessageScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedChat, setSelectedChat] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadMatches();
   }, []);
+
+  useEffect(() => {
+    if (selectedChat) {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return;
+
+      const chatId = [currentUser.uid, selectedChat.id].sort().join('_');
+      const unsubscribe = messageService.getMessages(chatId, (newMessages) => {
+        setMessages(newMessages);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [selectedChat, authService]);
+
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
   const loadMatches = async () => {
     try {
@@ -128,7 +150,6 @@ export const MessageScreen: React.FC = () => {
         return;
       }
 
-      // Get user's matches
       const userDoc = await firestoreService.getUserDocument(user.uid);
       if (!userDoc || !userDoc.social || !userDoc.social.matches) {
         setMatches([]);
@@ -138,24 +159,21 @@ export const MessageScreen: React.FC = () => {
 
       const userMatches = userDoc.social.matches || [];
       
-      // Fetch full match data
       const matchesData = await Promise.all(
         userMatches.map(async (match: any) => {
           try {
             const matchedUser = await firestoreService.getUserDocument(match.matchedUserId);
             if (!matchedUser) return null;
 
-            // Get last message (mock for now, can be implemented with Firestore subcollection)
             return {
               id: match.matchedUserId,
               userName: matchedUser.firstName || matchedUser.username || 'Kullanıcı',
               userPhoto: matchedUser.profilePhotos?.[0] || '',
               matchedAt: match.matchedAt,
-              matchedMovie: match.matchedMovie,
-              lastMessage: '', // Real messages will be implemented
-              lastMessageAt: match.matchedAt,
+              lastMessage: match.lastMessage || '',
+              lastMessageAt: match.lastMessageAt || match.matchedAt,
               isOnline: matchedUser.isOnline || false,
-              unreadCount: 0, // Real unread count will be implemented
+              unreadCount: 0, // Implement unread count logic later
             };
           } catch (error) {
             console.error(`Error fetching match ${match.matchedUserId}:`, error);
@@ -164,7 +182,6 @@ export const MessageScreen: React.FC = () => {
         })
       );
 
-      // Filter out null values and sort by last message time
       const validMatches = matchesData.filter(m => m !== null);
       const sortedMatches = validMatches.sort((a, b) => {
         const aTime = a.lastMessageAt?.toMillis?.() || 0;
@@ -189,8 +206,6 @@ export const MessageScreen: React.FC = () => {
 
   const handleChatPress = (match: any) => {
     setSelectedChat(match);
-    // Real messages will be loaded from Firestore
-    setMessages([]);
   };
 
   const handleBackToList = () => {
@@ -206,21 +221,9 @@ export const MessageScreen: React.FC = () => {
       const user = await authService.getCurrentUser();
       if (!user) return;
 
-      // Mock send - implement real message sending with Firestore
-      const newMessage = {
-        id: Date.now().toString(),
-        text: messageText.trim(),
-        timestamp: new Date(),
-        senderId: 'me',
-      };
-
-      // Real implementation will save to Firestore subcollection
-      // await firestoreService.sendMessage(user.uid, selectedChat.id, messageText);
+      await messageService.sendMessage(user.uid, selectedChat.id, messageText.trim());
       
-      setMessages([...messages, newMessage]);
       setMessageText('');
-      
-      Alert.alert('Bilgi', 'Mesajlaşma backend entegrasyonu gerekiyor. UI hazır!');
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Hata', 'Mesaj gönderilirken bir hata oluştu');
@@ -240,7 +243,6 @@ export const MessageScreen: React.FC = () => {
     );
   }
 
-  // Chat View
   if (selectedChat) {
     return (
       <SafeAreaView style={styles.container}>
@@ -249,7 +251,6 @@ export const MessageScreen: React.FC = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          {/* Chat Header */}
           <View style={styles.chatHeader}>
             <TouchableOpacity onPress={handleBackToList} style={styles.backButton}>
               <Text style={styles.backButtonText}>‹</Text>
@@ -273,18 +274,20 @@ export const MessageScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Messages */}
-          <ScrollView style={styles.messagesContainer} contentContainerStyle={styles.messagesContent}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.messagesContainer}
+            contentContainerStyle={styles.messagesContent}
+          >
             {messages.map((message) => (
               <MessageBubble
                 key={message.id}
                 message={message}
-                isOwnMessage={message.senderId === 'me'}
+                isOwnMessage={message.senderId === authService.getCurrentUser()?.uid}
               />
             ))}
           </ScrollView>
 
-          {/* Message Input */}
           <View style={styles.messageInputContainer}>
             <TextInput
               style={styles.messageInput}
@@ -312,7 +315,6 @@ export const MessageScreen: React.FC = () => {
     );
   }
 
-  // Chats List View
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>

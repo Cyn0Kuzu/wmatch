@@ -49,7 +49,6 @@ class AsyncStorageManager {
       this.isAsyncStorageAvailable = true;
       this.isInitialized = true;
       
-      console.log('AsyncStorage Manager initialized successfully');
       return true;
     } catch (error) {
       console.warn('AsyncStorage initialization failed, using memory-only mode:', error);

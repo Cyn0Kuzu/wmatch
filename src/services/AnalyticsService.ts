@@ -11,11 +11,9 @@ export class AnalyticsService {
   }
 
   public async initialize(): Promise<void> {
-    console.log('Analytics Service initialized');
   }
 
   public trackEvent(eventName: string, properties?: any): void {
-    console.log(`Analytics Event: ${eventName}`, properties);
     // Implement analytics tracking
   }
 

@@ -26,18 +26,15 @@ export const LoginScreen: React.FC = () => {
 
   const completePendingProfile = async (user: any) => {
     try {
-      console.log('🔍 Checking for pending profile data...');
       
       // AsyncStorage'dan pending data'yı al
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
       const pendingDataStr = await AsyncStorage.getItem(`pending_profile_${user.uid}`);
       
       if (!pendingDataStr) {
-        console.log('ℹ️ No pending profile data found');
         return;
       }
 
-      console.log('📦 Pending profile data found, completing registration...');
       showToast('Profil bilgileriniz kaydediliyor...', 'info');
       
       const pendingData = JSON.parse(pendingDataStr);
@@ -45,7 +42,6 @@ export const LoginScreen: React.FC = () => {
 
       // Fotoğrafları yükle
       if (pendingData.profilePhotos && pendingData.profilePhotos.length > 0) {
-        console.log(`📸 Uploading ${pendingData.profilePhotos.length} photos...`);
         
         const { firestoreService } = await import('../services/FirestoreService');
         const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
@@ -65,7 +61,6 @@ export const LoginScreen: React.FC = () => {
             await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
             const url = await getDownloadURL(storageRef);
             uploadedPhotos.push(url);
-            console.log(`✅ Photo ${i + 1} uploaded`);
           } catch (photoError) {
             console.error(`❌ Photo ${i + 1} upload failed:`, photoError);
           }
@@ -122,7 +117,6 @@ export const LoginScreen: React.FC = () => {
       
       await firestoreService.createUserProfile(user.uid, profileData);
       
-      console.log(`✅ ${favorites.length} favorite movies added automatically`);
 
       // Wait for Firestore to sync (important!)
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -132,11 +126,9 @@ export const LoginScreen: React.FC = () => {
       if (!verifyProfile) {
         throw new Error('Profile creation verification failed');
       }
-      console.log('✅ Profile verified in Firestore');
 
       // AsyncStorage'dan sil
       await AsyncStorage.removeItem(`pending_profile_${user.uid}`);
-      console.log('✅ Profile completed and pending data removed');
       showToast(`Profil tamamlandı! ${uploadedPhotos.length} fotoğraf yüklendi.`, 'success');
       
     } catch (error) {
@@ -156,7 +148,6 @@ export const LoginScreen: React.FC = () => {
       const userCredential = await authService.signIn(email, password);
       const user = userCredential.user;
       
-      console.log('✅ Login successful:', user.uid);
       
       // Email doğrulandıysa pending profile data kontrolü yap
       if (user.emailVerified) {
@@ -164,7 +155,6 @@ export const LoginScreen: React.FC = () => {
       }
       
       showToast('Tekrar hoş geldiniz!', 'success');
-      console.log('Login successful, navigation will be handled by AppNavigator');
       
       // Navigation will be handled automatically by AppNavigator
       // based on authentication state change

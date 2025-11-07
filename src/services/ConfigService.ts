@@ -33,7 +33,6 @@ export class ConfigService {
       this.setDefaults();
 
       this.isInitialized = true;
-      console.log('Config Service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Config Service:', error);
       this.isInitialized = true; // Allow app to continue

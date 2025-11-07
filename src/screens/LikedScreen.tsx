@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
+import { matchService } from '../services/MatchService';
 import { Timestamp } from 'firebase/firestore';
 
 const { width, height } = Dimensions.get('window');
@@ -271,8 +272,8 @@ const SwipeableLikeCard: React.FC<{
 
 export const LikedScreen: React.FC = () => {
   const { authService } = useCoreEngine();
-  const [likedByMe, setLikedByMe] = useState<any[]>([]); // Benim beğendiklerim (henüz match olmamış)
-  const [likedMe, setLikedMe] = useState<any[]>([]); // Beni beğenenler (henüz match olmamış)
+  const [likedByMe, setLikedByMe] = useState<any[]>([]);
+  const [likedMe, setLikedMe] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'liked' | 'likers'>('liked');
@@ -293,7 +294,6 @@ export const LikedScreen: React.FC = () => {
         return;
       }
 
-      // Get current user's data
       const userDoc = await firestoreService.getUserDocument(user.uid);
       if (!userDoc) {
         setLoading(false);
@@ -303,21 +303,15 @@ export const LikedScreen: React.FC = () => {
       const myLikedIds = userDoc.social?.likedUsers || [];
       const matchedIds = new Set<string>(userDoc.social?.matches?.map((m: any) => m.matchedUserId) || []);
 
-      // 1. Benim beğendiklerim - SADECE henüz match olmamışlar
-      const fetchedLikedByMe = await fetchUsersByIds(myLikedIds, matchedIds);
-      const nonMatchedLikedByMe = fetchedLikedByMe.filter(u => !u.isMatched);
+      // 1. Fetch users I have liked
+      const fetchedLikedByMe = await fetchUsersByIds(myLikedIds);
+      const nonMatchedLikedByMe = fetchedLikedByMe.filter(u => !matchedIds.has(u.id));
       setLikedByMe(nonMatchedLikedByMe);
 
-      // 2. Beni beğenenler - SADECE henüz match olmamışlar
-      const allUsers = await firestoreService.getAllUsers();
-      const usersWhoLikedMe = allUsers.filter(u => 
-        u.id !== user.uid && 
-        u.social?.likedUsers?.includes(user.uid) &&
-        !matchedIds.has(u.id) // Match olmamışlar
-      );
-      const likedMeIds = usersWhoLikedMe.map(u => u.id);
-      const fetchedLikedMe = await fetchUsersByIds(likedMeIds, matchedIds);
-      setLikedMe(fetchedLikedMe);
+      // 2. Fetch users who liked me
+      const usersWhoLikedMe = await matchService.getUsersWhoLikedMe(user.uid);
+      const nonMatchedLikedMe = usersWhoLikedMe.filter(u => !matchedIds.has(u.id));
+      setLikedMe(nonMatchedLikedMe);
 
     } catch (error) {
       console.error('Error loading liked users:', error);
@@ -327,7 +321,7 @@ export const LikedScreen: React.FC = () => {
     }
   };
 
-  const fetchUsersByIds = async (userIds: string[], matchedIds: Set<string>) => {
+  const fetchUsersByIds = async (userIds: string[]) => {
     const usersData = await Promise.all(
       userIds.map(async (userId: string) => {
         try {
@@ -344,7 +338,6 @@ export const LikedScreen: React.FC = () => {
             profilePhotos: userDoc.profilePhotos || userDoc.photos || [],
             photoURL: userDoc.photoURL || '',
             interests: userDoc.interests || userDoc.profile?.interests || [],
-            isMatched: matchedIds.has(userId),
           };
         } catch (error) {
           console.error(`Error fetching user ${userId}:`, error);
@@ -364,12 +357,10 @@ export const LikedScreen: React.FC = () => {
 
   const handleUserPress = async (user: any, index?: number) => {
     if (activeTab === 'likers') {
-      // Beni beğenen birine tıklanırsa - Swipe modal aç
       setSelectedUser(user);
       setCurrentLikerIndex(index || 0);
       setShowSwipeModal(true);
     } else {
-      // Beğendiklerim - beklemede
       Alert.alert(
         user.firstName || 'Kullanıcı',
         `${user.firstName} henüz sizi beğenmedi. Eğer sizi beğenirse eşleşeceksiniz!`,
@@ -385,10 +376,8 @@ export const LikedScreen: React.FC = () => {
       const currentUser = await authService.getCurrentUser();
       if (!currentUser) return;
       
-      // Like ekle
       await firestoreService.addToLikedList(currentUser.uid, selectedUser.id);
       
-      // Match oluştur
       await firestoreService.addMatch(currentUser.uid, {
         matchedUserId: selectedUser.id,
         matchedAt: Timestamp.now(),
@@ -396,12 +385,10 @@ export const LikedScreen: React.FC = () => {
       
       Alert.alert('🎉 Eşleşme!', `${selectedUser.firstName} ile eşleştiniz! Artık mesajlaşabilirsiniz.`);
       
-      // Modal kapat ve listeyi yenile
       setShowSwipeModal(false);
       setSelectedUser(null);
       await loadLikedUsers();
       
-      // Sıradaki kullanıcıyı göster
       if (currentLikerIndex < likedMe.length - 1) {
         setTimeout(() => {
           const nextUser = likedMe[currentLikerIndex + 1];
@@ -421,11 +408,9 @@ export const LikedScreen: React.FC = () => {
   const handleSwipePass = async () => {
     if (!selectedUser) return;
 
-    // Modal kapat
     setShowSwipeModal(false);
     setSelectedUser(null);
     
-    // Sıradaki kullanıcıyı göster
     if (currentLikerIndex < likedMe.length - 1) {
       setTimeout(() => {
         const nextUser = likedMe[currentLikerIndex + 1];
@@ -467,7 +452,6 @@ export const LikedScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Category Tabs */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterTab, activeTab === 'liked' && styles.filterTabActive]}
@@ -494,7 +478,6 @@ export const LikedScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* User Grid */}
       {currentUsers.length > 0 ? (
         <ScrollView
           style={styles.scrollView}
@@ -538,7 +521,6 @@ export const LikedScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Swipeable Like Card Modal */}
       {selectedUser && (
         <SwipeableLikeCard
           user={selectedUser}

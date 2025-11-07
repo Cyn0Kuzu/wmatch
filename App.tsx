@@ -17,6 +17,7 @@ import { ToastContainer } from './src/components/ui/ToastComponents';
 import { ErrorBoundary } from './src/components/ui/ErrorBoundary';
 import { asyncStorageManager } from './src/utils/AsyncStorageManager';
 import { globalErrorHandler } from './src/utils/GlobalErrorHandler';
+import { notificationService } from './src/services/NotificationService';
 
 import { CoreEngine } from './src/core/CoreEngine';
 import { AppNavigator } from './src/navigation/AppNavigator';
@@ -61,6 +62,22 @@ const App: React.FC = () => {
     };
 
     initializeAsyncStorage();
+  }, []);
+
+  React.useEffect(() => {
+    const initializeNotifications = async () => {
+      try {
+        await notificationService.initialize();
+        const token = await notificationService.registerForPushNotificationsAsync();
+        if (token) {
+          await notificationService.saveTokenToFirestore(token);
+        }
+      } catch (error) {
+        console.error('Failed to initialize notifications:', error);
+      }
+    };
+
+    initializeNotifications();
   }, []);
 
   if (!fontsLoaded || !asyncStorageReady) {

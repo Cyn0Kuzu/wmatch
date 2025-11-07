@@ -534,7 +534,6 @@ export class RealTimeWatchingService {
       // RealTimeWatchingService formatına dönüştür - Map kullanarak gruplama
       const movieMap = new Map<number, CurrentlyWatchingItem>(); // Group by movieId
       
-      console.log(`📊 Processing ${allUsersWatching.length} users' watching data...`);
       
       for (const userWatching of allUsersWatching) {
         for (const watchingItem of userWatching.currentlyWatching || []) {
@@ -551,7 +550,6 @@ export class RealTimeWatchingService {
             continue; // Skip if no ID or invalid
           }
           
-          console.log(`📺 Processing watching item: ${movieTitle} (${movieId}) for user ${userWatching.userId}`);
           
           // Bu film/dizi zaten Map'te var mı kontrol et
           const existingItem = movieMap.get(movieId);
@@ -582,7 +580,6 @@ export class RealTimeWatchingService {
             
             if (userProfile && !existingItem.viewers.find(v => v.id === userProfile!.id)) {
               existingItem.viewers.push(userProfile);
-              console.log(`✅ Added user to existing movie: ${movieTitle} (now ${existingItem.viewers.length} viewers)`);
             }
           } else {
             // Yeni öğe oluştur
@@ -623,7 +620,6 @@ export class RealTimeWatchingService {
                 startedAt: watchingItem.startedAt ? (watchingItem.startedAt.toDate ? watchingItem.startedAt.toDate().getTime() : watchingItem.startedAt) : Date.now()
               };
               movieMap.set(movieId, newItem);
-              console.log(`➕ Created new watching item: ${movieTitle} (1 viewer)`);
             }
           }
         }
@@ -631,9 +627,7 @@ export class RealTimeWatchingService {
       
       // Convert Map to Array
       const result = Array.from(movieMap.values());
-      console.log(`📊 Total unique movies being watched: ${result.length}`);
       result.forEach(item => {
-        console.log(`  - ${item.title}: ${item.viewers.length} viewer(s)`);
       });
       
       return result;

@@ -57,7 +57,6 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
       // Always fetch from TMDB for complete data
       const mediaType = movie.media_type || movie.type || (movie.first_air_date ? 'tv' : 'movie');
       
-      console.log('📡 Fetching movie details from TMDB:', {
         id: movie.id,
         mediaType,
         title: movie.title || movie.name
@@ -72,7 +71,6 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
       }
 
       if (details) {
-        console.log('✅ TMDB Details received:', {
           title: details.title || details.name,
           year: details.release_date || details.first_air_date,
           rating: details.vote_average,
@@ -315,7 +313,6 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     : [];
 
   // Debug log
-  console.log('🎬 MovieDetailModal:', {
     title,
     year,
     rating,

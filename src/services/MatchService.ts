@@ -45,6 +45,7 @@ export interface MatchConfig {
   includeFavorites: boolean;
   ageRange?: [number, number];
   maxDistance?: number;
+  gender?: 'male' | 'female' | 'other' | 'all';
 }
 
 export class MatchService {
@@ -85,7 +86,8 @@ export class MatchService {
       includeWatchedContent: false,
       includeFavorites: false,
       ageRange: [18, 99],
-      maxDistance: 50
+      maxDistance: 50,
+      gender: 'all'
     };
 
     const finalConfig = { ...defaultConfig, ...config };
@@ -114,7 +116,6 @@ export class MatchService {
         })
         .filter(id => id !== undefined && id !== null && !isNaN(id));
 
-      console.log('👤 Current user watching IDs:', currentUserWatchingIds);
 
       if (currentUserWatchingIds.length === 0) {
         logger.info('No currently watching content found', 'MatchService');
@@ -126,7 +127,18 @@ export class MatchService {
         throw new Error('FirestoreService not initialized');
       }
       const allUsers = await this.firestoreService.getAllUsers();
-      const otherUsers = allUsers.filter(user => user.id !== userId);
+      let otherUsers = allUsers.filter(user => user.id !== userId);
+
+      // Apply filters
+      if (finalConfig.gender && finalConfig.gender !== 'all') {
+        otherUsers = otherUsers.filter(user => user.profile?.gender === finalConfig.gender);
+      }
+      if (finalConfig.ageRange) {
+        otherUsers = otherUsers.filter(user => {
+          const age = user.profile?.age;
+          return age && age >= finalConfig.ageRange[0] && age <= finalConfig.ageRange[1];
+        });
+      }
 
       const matches: MatchProfile[] = [];
 
@@ -160,7 +172,6 @@ export class MatchService {
             })
             .filter(id => id !== undefined && id !== null && !isNaN(id));
 
-          console.log(`🔍 Checking user ${userId}:`, {
             watchingIds: userWatchingIds,
             currentUserIds: currentUserWatchingIds
           });
@@ -170,7 +181,6 @@ export class MatchService {
             userWatchingIds.includes(id)
           );
 
-          console.log(`🎯 Common watching found:`, commonWatching);
 
           if (commonWatching.length > 0) {
             const matchScore = this.calculateCurrentlyWatchingScore(
@@ -178,16 +188,13 @@ export class MatchService {
               currentUserWatchingIds as any[]
             );
             
-            console.log(`✅ Match found! Score: ${matchScore}`);
             
             if (matchScore >= finalConfig.minMatchScore) {
-              console.log(`✅ Match score acceptable (>= ${finalConfig.minMatchScore})`);
               
               // Sadece gerçek verisi olan kullanıcıları ekle - very lenient requirements for matching
               if (user.id || user.uid) {
                 const matchUserId = user.uid || user.id;
                 
-                console.log(`✅ Adding match for user: ${user.firstName || user.username || matchUserId}`);
                 
                 // Batch fetch all user data in parallel for better performance
                 const [userDoc, userFavorites, userWatched, userWatchlist] = await Promise.all([
@@ -245,7 +252,6 @@ export class MatchService {
         }
       }
 
-      console.log(`📊 Match Results:`, {
         totalMatches: matches.length,
         matchedUsers: matches.map(m => ({ 
           id: m.id, 
@@ -281,7 +287,8 @@ export class MatchService {
       includeWatchedContent: true,
       includeFavorites: false,
       ageRange: [18, 99],
-      maxDistance: 50
+      maxDistance: 50,
+      gender: 'all'
     };
 
     const finalConfig = { ...defaultConfig, ...config };
@@ -313,7 +320,18 @@ export class MatchService {
 
       // Tüm kullanıcıları al
       const allUsers = await this.firestoreService.getAllUsers();
-      const otherUsers = allUsers.filter(user => user.id !== userId);
+      let otherUsers = allUsers.filter(user => user.id !== userId);
+
+      // Apply filters
+      if (finalConfig.gender && finalConfig.gender !== 'all') {
+        otherUsers = otherUsers.filter(user => user.profile?.gender === finalConfig.gender);
+      }
+      if (finalConfig.ageRange) {
+        otherUsers = otherUsers.filter(user => {
+          const age = user.profile?.age;
+          return age && age >= finalConfig.ageRange[0] && age <= finalConfig.ageRange[1];
+        });
+      }
 
       const matches: MatchProfile[] = [];
 
@@ -527,6 +545,24 @@ export class MatchService {
       logger.info('Matches refreshed successfully', 'MatchService');
     } catch (error) {
       logger.error('Error refreshing matches', 'MatchService', error);
+      throw error;
+    }
+  }
+
+  public async getUsersWhoLikedMe(userId: string): Promise<MatchProfile[]> {
+    try {
+      if (!this.firestoreService) {
+        throw new Error('FirestoreService not initialized');
+      }
+      const users = await this.firestoreService.getUsersWhoLiked(userId);
+      // You might want to format the user data into MatchProfile objects
+      return users.map(user => ({
+        ...user,
+        matchScore: 0, // or some other logic
+        matchReason: 'Sizi beğendi',
+      })) as MatchProfile[];
+    } catch (error) {
+      logger.error('Error getting users who liked me', 'MatchService', error);
       throw error;
     }
   }

@@ -76,6 +76,7 @@ export interface UserProfile {
   
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  pushToken?: string;
 }
 
 export class FirestoreService {
@@ -154,12 +155,10 @@ export class FirestoreService {
       
       // If it's a permission error, assume the email is unique to allow registration
       if (error.code === 'permission-denied' || error.message?.includes('permission')) {
-        console.log('Permission denied for email check, assuming unique');
         return true;
       }
       
       // For other errors, also assume unique to not block registration
-      console.log('Email uniqueness check failed, assuming unique');
       return true;
     }
   }
@@ -192,12 +191,10 @@ export class FirestoreService {
       
       // If it's a permission error, assume the username is unique to allow registration
       if (error.code === 'permission-denied' || error.message?.includes('permission')) {
-        console.log('Permission denied for username check, assuming unique');
         return true;
       }
       
       // For other errors, also assume unique to not block registration
-      console.log('Username uniqueness check failed, assuming unique');
       return true;
     }
   }
@@ -207,8 +204,6 @@ export class FirestoreService {
    */
   async createUserProfile(userId: string, userData: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     try {
-      console.log('FirestoreService: Starting user profile creation...');
-      console.log('FirestoreService: User data:', {
         email: userData.email,
         username: userData.username,
         profilePhotos: userData.profilePhotos?.length || 0
@@ -229,7 +224,6 @@ export class FirestoreService {
             throw new Error('Bu e-posta adresi zaten kullanılıyor');
           }
         } else {
-          console.log('Email is empty or undefined, skipping uniqueness check');
         }
       } catch (error: any) {
         if (error.message?.includes('zaten kullanılıyor')) {
@@ -246,7 +240,6 @@ export class FirestoreService {
             throw new Error('Bu kullanıcı adı zaten kullanılıyor');
           }
         } else {
-          console.log('Username is empty or undefined, skipping uniqueness check');
         }
       } catch (error: any) {
         if (error.message?.includes('zaten kullanılıyor')) {
@@ -327,6 +320,9 @@ export class FirestoreService {
           followers: 0,
           following: 0,
           isVerified: false,
+          likedUsers: [],
+          likedByUsers: [],
+          matches: [],
           socialLinks: userData.social?.socialLinks || {}
         },
         createdAt: now,
@@ -336,24 +332,16 @@ export class FirestoreService {
       };
 
       // Debug: Log the final user profile data
-      console.log('FirestoreService: Saving user profile:', userProfile);
-      console.log('FirestoreService: Profile bio:', userProfile.profile?.bio);
-      console.log('FirestoreService: Profile gender:', userProfile.profile?.gender);
-      console.log('FirestoreService: Profile interests:', userProfile.profile?.interests);
-      console.log('FirestoreService: Profile photos:', userProfile.profilePhotos);
       
       // Kullanıcı profilini oluştur
-      console.log('FirestoreService: Creating user profile document...');
       
       // Final deep clean to ensure no undefined values
       const finalCleanedProfile = deepCleanUndefined(userProfile);
       
       const docRef = await setDoc(doc(db, this.usersCollection, userId), finalCleanedProfile);
-      console.log('FirestoreService: User profile created with ID:', userId);
       
       // Username is already stored in the users collection, no need for separate collection
 
-      console.log('FirestoreService: User profile creation completed successfully');
       return userId;
     } catch (error) {
       console.error('FirestoreService: Kullanıcı profili oluşturma hatası:', error);
@@ -1278,19 +1266,17 @@ export class FirestoreService {
       }
 
       const userRef = doc(db, this.usersCollection, userId);
+
       const userDoc = await getDoc(userRef);
-      
+
       if (userDoc.exists()) {
         const userData = userDoc.data() as UserProfile;
+
+        // Add to my likedUsers
         const likedUsers = userData.social?.likedUsers || [];
-        
         if (!likedUsers.includes(likedUserId)) {
           likedUsers.push(likedUserId);
-          
-          await updateDoc(userRef, {
-            'social.likedUsers': likedUsers,
-            updatedAt: Timestamp.now()
-          });
+          await updateDoc(userRef, { 'social.likedUsers': likedUsers });
         }
       }
     } catch (error) {
@@ -1299,7 +1285,82 @@ export class FirestoreService {
     }
   }
 
+  public async getUsersWhoLiked(userId: string): Promise<UserProfile[]> {
+    try {
+      await this.ensureInitialized();
+      const db = this.getDb();
+      const q = query(collection(db, this.usersCollection), where('social.likedUsers', 'array-contains', userId));
+      const querySnapshot = await getDocs(q);
+      const users: UserProfile[] = [];
+      querySnapshot.forEach((doc) => {
+        users.push({ id: doc.id, ...doc.data() } as UserProfile);
+      });
+      return users;
+    } catch (error) {
+      console.error('Error getting users who liked:', error);
+      throw error;
+    }
+  }
+
   // ===== GERÇEK ZAMANLI İZLEME SERVİSLERİ =====
+
+  /**
+   * Update last message for a match
+   */
+  public async updateLastMessage(senderId: string, receiverId: string, lastMessage: string): Promise<void> {
+    try {
+      await this.ensureInitialized();
+      const db = this.getDb();
+      if (!db) {
+        throw new Error('Firestore database is not initialized');
+      }
+
+      const now = Timestamp.now();
+      const senderRef = doc(db, this.usersCollection, senderId);
+      const receiverRef = doc(db, this.usersCollection, receiverId);
+
+      const senderDoc = await getDoc(senderRef);
+      const receiverDoc = await getDoc(receiverRef);
+
+      if (senderDoc.exists() && receiverDoc.exists()) {
+        const senderData = senderDoc.data();
+        const receiverData = receiverDoc.data();
+
+        const updateMatch = (matches: any[], targetId: string) => {
+          if (!Array.isArray(matches)) return [];
+          return matches.map((match: any) => {
+            if (match.matchedUserId === targetId) {
+              return {
+                ...match,
+                lastMessage,
+                lastMessageAt: now,
+              };
+            }
+            return match;
+          });
+        };
+
+        if (senderData.social?.matches) {
+            const newSenderMatches = updateMatch(senderData.social.matches, receiverId);
+            await updateDoc(senderRef, {
+              'social.matches': newSenderMatches,
+              updatedAt: now,
+            });
+        }
+
+        if (receiverData.social?.matches) {
+            const newReceiverMatches = updateMatch(receiverData.social.matches, senderId);
+            await updateDoc(receiverRef, {
+              'social.matches': newReceiverMatches,
+              updatedAt: now,
+            });
+        }
+      }
+    } catch (error) {
+      logger.error('Error updating last message', 'FirestoreService', error);
+      throw error;
+    }
+  }
 
   /**
    * Şu anda izlenen tüm içerikleri getir

@@ -160,7 +160,6 @@ export const ProfileScreen: React.FC = () => {
       
       // Retry mechanism for newly created profiles
       if (!userDoc && retryCount < 3) {
-        console.log(`⏳ Profile not found, retrying... (${retryCount + 1}/3)`);
         await new Promise(resolve => setTimeout(resolve, 1500));
         await loadProfile(retryCount + 1);
         return;
@@ -172,9 +171,7 @@ export const ProfileScreen: React.FC = () => {
         return;
       }
       
-      console.log('✅ Profile loaded successfully');
 
-      console.log('📊 Database User Data:', userDoc); // Debug için
 
       // Database'deki TÜM bilgileri kullan - hiçbir şey atlama
       setProfile({

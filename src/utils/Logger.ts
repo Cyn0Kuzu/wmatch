@@ -75,7 +75,6 @@ class Logger {
     if (__DEV__) {
       const levelName = LogLevel[level];
       const prefix = `[${levelName}] ${logEntry.timestamp}`;
-      console.log(`${prefix} ${context ? `[${context}]` : ''} ${message}`, data || '');
     }
 
     // Store logs for production

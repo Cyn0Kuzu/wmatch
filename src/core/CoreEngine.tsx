@@ -22,7 +22,6 @@ export const CoreEngine: React.FC<CoreEngineProps> = ({ children }) => {
   useEffect(() => {
     const initializeEngine = async () => {
       try {
-        console.log('Starting Core Engine initialization...');
         
         // First, check if AsyncStorage is available
         const isAsyncStorageAvailable = await asyncStorageManager.initialize();
@@ -36,10 +35,6 @@ export const CoreEngine: React.FC<CoreEngineProps> = ({ children }) => {
         // Inject firestoreService into UserDataManager
         coreService.userDataManager.setFirestoreService(coreService.firestoreService);
         
-        console.log('Core Engine initialized successfully');
-        console.log('TMDB Service available:', !!coreService.tmdbService);
-        console.log('AsyncStorage available:', isAsyncStorageAvailable);
-        console.log('Service status:', coreService.getServiceStatus());
         
       } catch (error) {
         console.error('Failed to initialize Core Engine:', error);

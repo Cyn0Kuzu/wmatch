@@ -114,7 +114,6 @@ export const WatchScreen: React.FC = () => {
       const allWatching = await realTimeWatchingService.getAllCurrentlyWatching();
       setAllCurrentlyWatching(allWatching);
       
-      console.log('🔄 Currently watching updated:', {
         total: allWatching.length,
         items: allWatching.map(item => ({
           id: item.movieId,

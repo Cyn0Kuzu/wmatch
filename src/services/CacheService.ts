@@ -53,7 +53,6 @@ export class CacheService {
       this.cleanExpiredItems();
 
       this.isInitialized = true;
-      console.log('Cache Service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Cache Service:', error);
       // Clear corrupted cache and continue

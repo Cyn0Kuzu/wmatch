@@ -58,7 +58,6 @@ export class IconCacheService {
       }
       
       this.isInitialized = true;
-      console.log('Icon cache initialized successfully');
     } catch (error) {
       console.warn('Failed to load icon cache:', error);
       this.isInitialized = true;

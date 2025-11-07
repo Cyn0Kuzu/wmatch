@@ -11,15 +11,18 @@ import {
   ScrollView, 
   RefreshControl,
   ActivityIndicator,
-  Alert
+  Alert,
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
+import { Ionicons } from '@expo/vector-icons';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-// Swipeable Profile Card Component
+// Swipeable Profile Card Component (remains the same)
 const SwipeableProfileCard: React.FC<{ 
   profile: any; 
   onSwipeLeft: () => void; 
@@ -55,7 +58,6 @@ const SwipeableProfileCard: React.FC<{
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dx > 120) {
-          // Swipe right - Like
           Animated.parallel([
             Animated.timing(pan, {
               toValue: { x: screenWidth + 100, y: gestureState.dy },
@@ -67,7 +69,6 @@ const SwipeableProfileCard: React.FC<{
             onSwipeRight();
           });
         } else if (gestureState.dx < -120) {
-          // Swipe left - Pass
           Animated.parallel([
             Animated.timing(pan, {
               toValue: { x: -screenWidth - 100, y: gestureState.dy },
@@ -79,7 +80,6 @@ const SwipeableProfileCard: React.FC<{
             onSwipeLeft();
           });
         } else {
-          // Return to center
           Animated.parallel([
             Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }),
             Animated.timing(rotate, { toValue: 0, duration: 200, useNativeDriver: true }),
@@ -117,15 +117,12 @@ const SwipeableProfileCard: React.FC<{
       ]}
       {...panResponder.panHandlers}
     >
-      {/* Like/Pass Indicators */}
       <Animated.View style={[styles.likeOverlay, { opacity: likeOpacity }]}>
         <Text style={styles.likeText}>BEĞEN</Text>
       </Animated.View>
       <Animated.View style={[styles.passOverlay, { opacity: passOpacity }]}>
         <Text style={styles.passText}>GEÇ</Text>
       </Animated.View>
-
-      {/* Photo Section */}
       <View style={styles.photoSection}>
         {hasPhotos ? (
           <>
@@ -159,8 +156,6 @@ const SwipeableProfileCard: React.FC<{
         )}
         <View style={styles.photoGradient} />
       </View>
-
-      {/* Profile Info */}
       <ScrollView style={styles.infoSection} showsVerticalScrollIndicator={false}>
         <View style={styles.nameSection}>
           <Text style={styles.cardName}>
@@ -175,8 +170,6 @@ const SwipeableProfileCard: React.FC<{
         {profile.bio && (
           <Text style={styles.cardBio}>{profile.bio}</Text>
         )}
-
-        {/* Common Movies Section */}
         {profile.commonMovies > 0 && profile.previouslyWatched && profile.previouslyWatched.length > 0 && (
           <View style={styles.commonMoviesSection}>
             <View style={styles.commonMoviesHeader}>
@@ -204,8 +197,6 @@ const SwipeableProfileCard: React.FC<{
             </ScrollView>
           </View>
         )}
-
-        {/* Interests */}
         {profile.interests && profile.interests.length > 0 && (
           <View style={styles.interestsSection}>
             <Text style={styles.sectionTitle}>İlgi Alanları</Text>
@@ -232,12 +223,15 @@ export const DiscoverScreen: React.FC = () => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [genderFilter, setGenderFilter] = useState<'male' | 'female' | 'other' | 'all'>('all');
+  const [ageRangeFilter, setAgeRangeFilter] = useState<[number, number]>([18, 55]);
 
   useEffect(() => {
     loadRecommendedProfiles();
   }, []);
 
-  const loadRecommendedProfiles = async () => {
+  const loadRecommendedProfiles = async (filters: any = {}) => {
     try {
       setLoading(true);
       const user = await authService.getCurrentUser();
@@ -252,19 +246,18 @@ export const DiscoverScreen: React.FC = () => {
         return;
       }
 
-      // Get recommended profiles based on watched content
       const recommendedProfiles = await matchService.getWatchedContentMatches(user.uid, {
         maxResults: 20,
         minMatchScore: 0.2,
+        gender: filters.gender || genderFilter,
+        ageRange: filters.ageRange || ageRangeFilter,
       });
 
-      // Transform to profile format with common movies
       const { userDataManager } = coreService || {};
       const myWatched = userDataManager ? await userDataManager.getWatchedContent(user.uid) : [];
       const myWatchedIds = myWatched.map((m: any) => m.id);
 
       const formattedProfiles = recommendedProfiles.map(profile => {
-        // Find common movies between current user and this profile
         const theirWatchedIds = (profile.watchedContent || []).map((m: any) => m.id);
         const commonMovieIds = myWatchedIds.filter((id: any) => theirWatchedIds.includes(id));
         
@@ -301,6 +294,7 @@ export const DiscoverScreen: React.FC = () => {
       });
 
       setProfiles(formattedProfiles);
+      setCurrentIndex(0);
     } catch (error) {
       console.error('Error loading recommended profiles:', error);
       Alert.alert('Hata', 'Profiller yüklenirken bir hata oluştu');
@@ -316,19 +310,15 @@ export const DiscoverScreen: React.FC = () => {
   }, []);
 
   const handleSwipeLeft = async () => {
-    console.log('Passed profile:', profiles[currentIndex]?.name);
     if (currentIndex < profiles.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      // All profiles swiped
       setCurrentIndex(profiles.length);
     }
   };
 
   const handleSwipeRight = async () => {
     const currentProfile = profiles[currentIndex];
-    console.log('Liked profile:', currentProfile?.name);
-    
     try {
       const user = await authService.getCurrentUser();
       if (user && currentProfile) {
@@ -345,16 +335,9 @@ export const DiscoverScreen: React.FC = () => {
     }
   };
 
-  const handleButtonLike = () => {
-    if (currentIndex < profiles.length) {
-      handleSwipeRight();
-    }
-  };
-
-  const handleButtonPass = () => {
-    if (currentIndex < profiles.length) {
-      handleSwipeLeft();
-    }
+  const handleApplyFilters = () => {
+    setFilterModalVisible(false);
+    loadRecommendedProfiles({ gender: genderFilter, ageRange: ageRangeFilter });
   };
 
   if (loading) {
@@ -370,6 +353,59 @@ export const DiscoverScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={filterModalVisible}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Filtrele</Text>
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Cinsiyet</Text>
+              <View style={styles.genderOptions}>
+                <TouchableOpacity
+                  style={[styles.genderButton, genderFilter === 'all' && styles.genderButtonActive]}
+                  onPress={() => setGenderFilter('all')}
+                >
+                  <Text style={styles.genderButtonText}>Tümü</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.genderButton, genderFilter === 'male' && styles.genderButtonActive]}
+                  onPress={() => setGenderFilter('male')}
+                >
+                  <Text style={styles.genderButtonText}>Erkek</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.genderButton, genderFilter === 'female' && styles.genderButtonActive]}
+                  onPress={() => setGenderFilter('female')}
+                >
+                  <Text style={styles.genderButtonText}>Kadın</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Yaş Aralığı: {ageRangeFilter[0]} - {ageRangeFilter[1]}</Text>
+              <MultiSlider
+                values={[ageRangeFilter[0], ageRangeFilter[1]]}
+                onValuesChange={setAgeRangeFilter}
+                min={18}
+                max={55}
+                step={1}
+                sliderLength={screenWidth - 120}
+                selectedStyle={{ backgroundColor: '#E50914' }}
+                unselectedStyle={{ backgroundColor: '#333' }}
+                markerStyle={{ backgroundColor: '#E50914', height: 20, width: 20 }}
+              />
+            </View>
+            <TouchableOpacity style={styles.applyButton} onPress={handleApplyFilters}>
+              <Text style={styles.applyButtonText}>Uygula</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -384,6 +420,9 @@ export const DiscoverScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Senin İçin</Text>
           <Text style={styles.headerSubtitle}>İzlediğiniz filmlere göre öneriler</Text>
+          <TouchableOpacity style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
+            <Ionicons name="options-outline" size={24} color="white" />
+          </TouchableOpacity>
         </View>
 
         {profiles.length > 0 && currentIndex < profiles.length ? (
@@ -399,14 +438,14 @@ export const DiscoverScreen: React.FC = () => {
             <View style={styles.actionButtonsContainer}>
               <TouchableOpacity
                 style={styles.passButton}
-                onPress={handleButtonPass}
+                onPress={handleSwipeLeft}
               >
                 <Text style={styles.passButtonText}>✕</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={styles.likeButton}
-                onPress={handleButtonLike}
+                onPress={handleSwipeRight}
               >
                 <Text style={styles.likeButtonText}>♥</Text>
               </TouchableOpacity>
@@ -444,318 +483,379 @@ export const DiscoverScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    color: '#8C8C8C',
-    fontSize: 14,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  cardContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    minHeight: screenHeight * 0.6,
-  },
-  card: {
-    width: screenWidth * 0.9,
-    height: screenHeight * 0.68,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  likeOverlay: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    backgroundColor: 'rgba(76, 175, 80, 0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    zIndex: 1000,
-    transform: [{ rotate: '15deg' }],
-  },
-  likeText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  passOverlay: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
-    backgroundColor: 'rgba(244, 67, 54, 0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    zIndex: 1000,
-    transform: [{ rotate: '-15deg' }],
-  },
-  passText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  photoSection: {
-    height: '55%',
-    position: 'relative',
-  },
-  cardPhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  noPhotoSection: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0A0A0A',
-  },
-  noPhotoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#E50914',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noPhotoLetter: {
-    color: '#FFFFFF',
-    fontSize: 56,
-    fontWeight: 'bold',
-  },
-  photoGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 80,
-    backgroundColor: 'transparent',
-  },
-  photoDotsContainer: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  photoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  photoDotActive: {
-    backgroundColor: '#FFFFFF',
-    width: 20,
-  },
-  infoSection: {
-    flex: 1,
-    padding: 20,
-  },
-  nameSection: {
-    marginBottom: 12,
-  },
-  cardName: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  cardLocation: {
-    color: '#8C8C8C',
-    fontSize: 14,
-  },
-  cardBio: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  commonMoviesSection: {
-    marginBottom: 20,
-    backgroundColor: 'rgba(229, 9, 20, 0.1)',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(229, 9, 20, 0.3)',
-  },
-  commonMoviesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  commonMoviesIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  commonMoviesTitle: {
-    color: '#E50914',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  commonMoviesSubtitle: {
-    color: '#CCCCCC',
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  movieThumbnails: {
-    flexDirection: 'row',
-  },
-  movieThumbnail: {
-    marginRight: 10,
-    width: 80,
-  },
-  movieThumbnailImage: {
-    width: 80,
-    height: 120,
-    borderRadius: 8,
-    backgroundColor: '#2A2A2A',
-    marginBottom: 6,
-  },
-  movieThumbnailTitle: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  interestsSection: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  interestTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  interestTag: {
-    backgroundColor: '#2A2A2A',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  interestTagText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-  },
-  bottomSpace: {
-    height: 20,
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 60,
-    paddingVertical: 20,
-  },
-  passButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#2A2A2A',
-    borderWidth: 2,
-    borderColor: '#F44336',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  passButtonText: {
-    color: '#F44336',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  likeButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#2A2A2A',
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  likeButtonText: {
-    color: '#4CAF50',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  progressContainer: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  progressText: {
-    color: '#666',
-    fontSize: 12,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#8C8C8C',
-    fontSize: 16,
-    marginTop: 12,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    minHeight: screenHeight * 0.6,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    color: '#8C8C8C',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  refreshButton: {
-    backgroundColor: '#E50914',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  refreshButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#000',
+      },
+      scrollContent: {
+        flexGrow: 1,
+      },
+      header: {
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+        alignItems: 'center',
+      },
+      headerTitle: {
+        color: '#FFFFFF',
+        fontSize: 28,
+        fontWeight: 'bold',
+      },
+      headerSubtitle: {
+        color: '#8C8C8C',
+        fontSize: 14,
+        marginTop: 4,
+        textAlign: 'center',
+      },
+      filterButton: {
+        position: 'absolute',
+        right: 20,
+        top: 30,
+      },
+      cardContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        minHeight: screenHeight * 0.6,
+      },
+      card: {
+        width: screenWidth * 0.9,
+        height: screenHeight * 0.68,
+        backgroundColor: '#1A1A1A',
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+      },
+      likeOverlay: {
+        position: 'absolute',
+        top: 40,
+        right: 20,
+        backgroundColor: 'rgba(76, 175, 80, 0.9)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+        zIndex: 1000,
+        transform: [{ rotate: '15deg' }],
+      },
+      likeText: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: 'bold',
+      },
+      passOverlay: {
+        position: 'absolute',
+        top: 40,
+        left: 20,
+        backgroundColor: 'rgba(244, 67, 54, 0.9)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+        zIndex: 1000,
+        transform: [{ rotate: '-15deg' }],
+      },
+      passText: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: 'bold',
+      },
+      photoSection: {
+        height: '55%',
+        position: 'relative',
+      },
+      cardPhoto: {
+        width: '100%',
+        height: '100%',
+      },
+      noPhotoSection: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#0A0A0A',
+      },
+      noPhotoCircle: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: '#E50914',
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      noPhotoLetter: {
+        color: '#FFFFFF',
+        fontSize: 56,
+        fontWeight: 'bold',
+      },
+      photoGradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 80,
+        backgroundColor: 'transparent',
+      },
+      photoDotsContainer: {
+        position: 'absolute',
+        top: 12,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 4,
+      },
+      photoDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255, 255, 255, 0.4)',
+      },
+      photoDotActive: {
+        backgroundColor: '#FFFFFF',
+        width: 20,
+      },
+      infoSection: {
+        flex: 1,
+        padding: 20,
+      },
+      nameSection: {
+        marginBottom: 12,
+      },
+      cardName: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 4,
+      },
+      cardLocation: {
+        color: '#8C8C8C',
+        fontSize: 14,
+      },
+      cardBio: {
+        color: '#CCCCCC',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 16,
+      },
+      commonMoviesSection: {
+        marginBottom: 20,
+        backgroundColor: 'rgba(229, 9, 20, 0.1)',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(229, 9, 20, 0.3)',
+      },
+      commonMoviesHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+      },
+      commonMoviesIcon: {
+        fontSize: 18,
+        marginRight: 8,
+      },
+      commonMoviesTitle: {
+        color: '#E50914',
+        fontSize: 16,
+        fontWeight: 'bold',
+      },
+      commonMoviesSubtitle: {
+        color: '#CCCCCC',
+        fontSize: 13,
+        marginBottom: 12,
+      },
+      movieThumbnails: {
+        flexDirection: 'row',
+      },
+      movieThumbnail: {
+        marginRight: 10,
+        width: 80,
+      },
+      movieThumbnailImage: {
+        width: 80,
+        height: 120,
+        borderRadius: 8,
+        backgroundColor: '#2A2A2A',
+        marginBottom: 6,
+      },
+      movieThumbnailTitle: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        textAlign: 'center',
+      },
+      interestsSection: {
+        marginBottom: 16,
+      },
+      sectionTitle: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+      },
+      interestTags: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+      },
+      interestTag: {
+        backgroundColor: '#2A2A2A',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+      },
+      interestTagText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+      },
+      bottomSpace: {
+        height: 20,
+      },
+      actionButtonsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingHorizontal: 60,
+        paddingVertical: 20,
+      },
+      passButton: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#2A2A2A',
+        borderWidth: 2,
+        borderColor: '#F44336',
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      passButtonText: {
+        color: '#F44336',
+        fontSize: 32,
+        fontWeight: 'bold',
+      },
+      likeButton: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#2A2A2A',
+        borderWidth: 2,
+        borderColor: '#4CAF50',
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      likeButtonText: {
+        color: '#4CAF50',
+        fontSize: 32,
+        fontWeight: 'bold',
+      },
+      progressContainer: {
+        alignItems: 'center',
+        paddingVertical: 12,
+      },
+      progressText: {
+        color: '#666',
+        fontSize: 12,
+      },
+      loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      loadingText: {
+        color: '#8C8C8C',
+        fontSize: 16,
+        marginTop: 12,
+      },
+      emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 40,
+        minHeight: screenHeight * 0.6,
+      },
+      emptyIcon: {
+        fontSize: 64,
+        marginBottom: 16,
+      },
+      emptyTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        textAlign: 'center',
+      },
+      emptySubtitle: {
+        color: '#8C8C8C',
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 24,
+      },
+      refreshButton: {
+        backgroundColor: '#E50914',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 24,
+      },
+      refreshButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+      },
+      modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      },
+      modalContent: {
+        width: screenWidth * 0.9,
+        backgroundColor: '#1A1A1A',
+        borderRadius: 20,
+        padding: 20,
+      },
+      modalTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
+      },
+      filterGroup: {
+        marginBottom: 20,
+      },
+      filterLabel: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        marginBottom: 10,
+      },
+      genderOptions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+      },
+      genderButton: {
+        flex: 1,
+        padding: 10,
+        borderRadius: 10,
+        backgroundColor: '#333',
+        alignItems: 'center',
+        marginHorizontal: 5,
+      },
+      genderButtonActive: {
+        backgroundColor: '#E50914',
+      },
+      genderButtonText: {
+        color: '#FFFFFF',
+      },
+      applyButton: {
+        backgroundColor: '#E50914',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+      },
+      applyButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+      },
 });

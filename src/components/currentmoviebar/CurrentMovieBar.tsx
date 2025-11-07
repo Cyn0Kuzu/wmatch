@@ -51,7 +51,6 @@ export const CurrentMovieBar: React.FC = () => {
 
     // Event listeners for real-time updates
     const handleUpdate = () => {
-      console.log('📢 CurrentMovieBar: Update triggered');
       loadCurrentMovie();
     };
 
@@ -114,7 +113,6 @@ export const CurrentMovieBar: React.FC = () => {
   const handlePress = () => {
     if (currentMovie) {
       // Navigate to detail or expand
-      console.log('📱 CurrentMovieBar pressed');
     } else {
       // Navigate to Watch screen
       (navigation as any).navigate('Watch');

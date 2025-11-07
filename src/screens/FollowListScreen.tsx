@@ -102,12 +102,10 @@ export const FollowListScreen: React.FC = () => {
 
   const handleFollow = async (userId: string) => {
     // TODO: Implement follow/unfollow functionality
-    console.log('Follow user:', userId);
   };
 
   const handleUserPress = (userId: string) => {
     // TODO: Navigate to user profile
-    console.log('View user profile:', userId);
   };
 
   if (loading) {

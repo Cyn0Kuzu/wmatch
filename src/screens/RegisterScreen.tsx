@@ -208,7 +208,6 @@ export const RegisterScreen: React.FC = () => {
   };
 
   const reorderPhotos = (fromIndex: number, toIndex: number) => {
-    console.log('RegisterScreen: reorderPhotos called - fromIndex:', fromIndex, 'toIndex:', toIndex);
     
     const newPhotos = [...profilePhotos];
     const [removed] = newPhotos.splice(fromIndex, 1);
@@ -350,7 +349,6 @@ export const RegisterScreen: React.FC = () => {
       ]).start();
       
       // Diğer fotoğraflar zaten sabit - hiçbir şey yapmaya gerek yok
-      console.log('RegisterScreen: Other photos remain fixed');
     }
     
     setDraggedIndex(null);
@@ -396,7 +394,6 @@ export const RegisterScreen: React.FC = () => {
         floatingPhoto.translateX.setValue(gridCenterX);
         floatingPhoto.translateY.setValue(gridCenterY);
         
-        console.log('RegisterScreen: Grid center for index', index, '- X:', gridCenterX, 'Y:', gridCenterY);
         setDragPosition({ x: evt.nativeEvent.pageX, y: evt.nativeEvent.pageY });
       },
       onPanResponderMove: (evt, gestureState) => {
@@ -429,11 +426,9 @@ export const RegisterScreen: React.FC = () => {
             useNativeDriver: true,
           }).start();
           
-          console.log('RegisterScreen: Magnet to grid', magnetTargetIndex, '- X:', gridCenterX, 'Y:', gridCenterY);
           
           // Hover durumunu güncelle
           if (magnetTargetIndex !== hoveredIndex) {
-            console.log('RegisterScreen: Updating hover from', hoveredIndex, 'to', magnetTargetIndex);
             setHoveredIndex(magnetTargetIndex);
             setMagnetTarget(magnetTargetIndex);
             
@@ -456,11 +451,9 @@ export const RegisterScreen: React.FC = () => {
             floatingPhoto.translateX.setValue(gridCenterX);
             floatingPhoto.translateY.setValue(gridCenterY);
             
-            console.log('RegisterScreen: Free movement to grid', newIndex, '- X:', gridCenterX, 'Y:', gridCenterY);
             
             // Hover durumunu güncelle
             if (newIndex !== hoveredIndex) {
-              console.log('RegisterScreen: Updating hover from', hoveredIndex, 'to', newIndex);
               setHoveredIndex(newIndex);
               setMagnetTarget(null);
               
@@ -473,12 +466,9 @@ export const RegisterScreen: React.FC = () => {
         }
       },
       onPanResponderRelease: () => {
-        console.log('RegisterScreen: onPanResponderRelease - hoveredIndex:', hoveredIndex, 'draggedIndex:', draggedIndex);
         if (hoveredIndex !== null && hoveredIndex !== draggedIndex) {
-          console.log('RegisterScreen: Reordering photos from', draggedIndex, 'to', hoveredIndex);
           reorderPhotos(draggedIndex!, hoveredIndex);
         } else {
-          console.log('RegisterScreen: No reordering needed');
         }
         handleDragEnd();
       },
@@ -490,7 +480,6 @@ export const RegisterScreen: React.FC = () => {
 
   const uploadImageToStorage = async (imageUri: string, userId: string, index: number): Promise<string | null> => {
     try {
-      console.log(`Starting upload for photo ${index + 1}:`, imageUri);
       
       // Convert image URI to blob with better quality
       const response = await fetch(imageUri);
@@ -499,12 +488,10 @@ export const RegisterScreen: React.FC = () => {
       }
       
       const blob = await response.blob();
-      console.log(`Blob created for photo ${index + 1}, size:`, blob.size);
       
       // Create file path with better naming
       const fileName = `photo_${index}_${Date.now()}_high_quality.jpg`;
       const filePath = `users/${userId}/photos/${fileName}`;
-      console.log(`Uploading to path:`, filePath);
       
       // Upload to Firebase Storage
       const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
@@ -526,11 +513,9 @@ export const RegisterScreen: React.FC = () => {
         }
       });
       
-      console.log(`Upload completed for photo ${index + 1}`);
       
       // Get download URL
       const downloadURL = await getDownloadURL(uploadResult.ref);
-      console.log(`Photo ${index + 1} uploaded successfully:`, downloadURL);
       
       return downloadURL;
     } catch (error: any) {
@@ -731,23 +716,18 @@ export const RegisterScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      console.log('🔐 Starting registration process...');
       
       // 1. SADECE Auth user oluştur
       const userCredential = await authService.signUp(email, password);
       const user = userCredential.user;
 
-      console.log('✅ Auth user created:', user.uid);
-      console.log('📧 User email:', user.email);
 
       // 2. HEMEN email verification gönder
-      console.log('📧 Sending email verification FIRST...');
       const { sendEmailVerification } = await import('firebase/auth');
       await sendEmailVerification(user, {
         url: 'https://mwatch-69a6f.firebaseapp.com',
         handleCodeInApp: false,
       });
-      console.log('✅ Email verification sent to:', email);
 
       // 3. Temel profil bilgilerini AsyncStorage'a kaydet (email onaylandıktan sonra kullanılacak)
       const pendingProfileData: any = {
@@ -772,11 +752,9 @@ export const RegisterScreen: React.FC = () => {
           `pending_profile_${user.uid}`,
           JSON.stringify(pendingProfileData)
         );
-        console.log('💾 Profile data saved to AsyncStorage for later completion');
       });
 
       // 4. Kullanıcıyı HEMEN çıkış yaptır
-      console.log('🚪 Signing out user - profile will be completed after email verification');
       await authService.signOut();
 
       // NOT: Fotoğraflar ve database kayıt email onaylandıktan sonra yapılacak
