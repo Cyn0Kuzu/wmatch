@@ -127,7 +127,9 @@ export class MatchService {
         throw new Error('FirestoreService not initialized');
       }
       const allUsers = await this.firestoreService.getAllUsers();
-      let otherUsers = allUsers.filter(user => user.id !== userId);
+      const currentUserDoc = await this.firestoreService.getUserDocument(userId);
+      const swipedUserIds = currentUserDoc.social?.swipedUsers || [];
+      let otherUsers = allUsers.filter(user => user.id !== userId && !swipedUserIds.includes(user.id));
 
       // Apply filters
       if (finalConfig.gender && finalConfig.gender !== 'all') {
@@ -320,7 +322,9 @@ export class MatchService {
 
       // Tüm kullanıcıları al
       const allUsers = await this.firestoreService.getAllUsers();
-      let otherUsers = allUsers.filter(user => user.id !== userId);
+      const currentUserDoc = await this.firestoreService.getUserDocument(userId);
+      const swipedUserIds = currentUserDoc.social?.swipedUsers || [];
+      let otherUsers = allUsers.filter(user => user.id !== userId && !swipedUserIds.includes(user.id));
 
       // Apply filters
       if (finalConfig.gender && finalConfig.gender !== 'all') {

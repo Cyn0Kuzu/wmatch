@@ -314,7 +314,7 @@ export const LikedScreen: React.FC = () => {
       setLikedMe(nonMatchedLikedMe);
 
     } catch (error) {
-      console.error('Error loading liked users:', error);
+      logger.error('Error loading liked users:', 'LikedScreen', error);
       Alert.alert('Hata', 'Beğeniler yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -340,7 +340,7 @@ export const LikedScreen: React.FC = () => {
             interests: userDoc.interests || userDoc.profile?.interests || [],
           };
         } catch (error) {
-          console.error(`Error fetching user ${userId}:`, error);
+          logger.error(`Error fetching user ${userId}:`, 'LikedScreen', error);
           return null;
         }
       })
@@ -400,7 +400,7 @@ export const LikedScreen: React.FC = () => {
         }, 1000);
       }
     } catch (error) {
-      console.error('Error creating match:', error);
+      logger.error('Error creating match:', 'LikedScreen', error);
       Alert.alert('Hata', 'Eşleşme oluşturulurken bir hata oluştu');
     }
   };

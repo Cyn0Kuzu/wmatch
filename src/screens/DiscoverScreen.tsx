@@ -241,7 +241,7 @@ export const DiscoverScreen: React.FC = () => {
       }
 
       if (!matchService) {
-        console.error('Match service not available');
+        logger.error('Match service not available', 'DiscoverScreen');
         setLoading(false);
         return;
       }
@@ -296,7 +296,7 @@ export const DiscoverScreen: React.FC = () => {
       setProfiles(formattedProfiles);
       setCurrentIndex(0);
     } catch (error) {
-      console.error('Error loading recommended profiles:', error);
+      logger.error('Error loading recommended profiles:', 'DiscoverScreen', error);
       Alert.alert('Hata', 'Profiller yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -310,6 +310,16 @@ export const DiscoverScreen: React.FC = () => {
   }, []);
 
   const handleSwipeLeft = async () => {
+    const currentProfile = profiles[currentIndex];
+    try {
+      const user = await authService.getCurrentUser();
+      if (user && currentProfile) {
+        await firestoreService.addToSwipedList(user.uid, currentProfile.id);
+      }
+    } catch (error) {
+      logger.error('Error adding to swiped list:', 'DiscoverScreen', error);
+    }
+
     if (currentIndex < profiles.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
@@ -323,9 +333,10 @@ export const DiscoverScreen: React.FC = () => {
       const user = await authService.getCurrentUser();
       if (user && currentProfile) {
         await firestoreService.addToLikedList(user.uid, currentProfile.id);
+        await firestoreService.addToSwipedList(user.uid, currentProfile.id);
       }
     } catch (error) {
-      console.error('Error liking profile:', error);
+      logger.error('Error liking profile:', 'DiscoverScreen', error);
     }
 
     if (currentIndex < profiles.length - 1) {

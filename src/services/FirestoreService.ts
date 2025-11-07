@@ -64,6 +64,7 @@ export interface UserProfile {
     likedUsers?: string[]; // Beğenilen kullanıcılar
     likedByUsers?: string[]; // Seni beğenen kullanıcılar
     matches?: string[]; // Eşleşen kullanıcılar
+    swipedUsers?: string[]; // Görülen kullanıcılar
     socialLinks: {
       instagram?: string;
       twitter?: string;
@@ -1281,6 +1282,32 @@ export class FirestoreService {
       }
     } catch (error) {
       console.error('Error adding to liked list:', error);
+      throw error;
+    }
+  }
+
+  public async addToSwipedList(userId: string, swipedUserId: string): Promise<void> {
+    try {
+      await this.ensureInitialized();
+      const db = this.getDb();
+      if (!db) {
+        throw new Error('Firestore database is not initialized');
+      }
+
+      const userRef = doc(db, this.usersCollection, userId);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as UserProfile;
+        const swipedUsers = userData.social?.swipedUsers || [];
+
+        if (!swipedUsers.includes(swipedUserId)) {
+          swipedUsers.push(swipedUserId);
+          await updateDoc(userRef, { 'social.swipedUsers': swipedUsers });
+        }
+      }
+    } catch (error) {
+      console.error('Error adding to swiped list:', error);
       throw error;
     }
   }

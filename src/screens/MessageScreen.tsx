@@ -176,7 +176,7 @@ export const MessageScreen: React.FC = () => {
               unreadCount: 0, // Implement unread count logic later
             };
           } catch (error) {
-            console.error(`Error fetching match ${match.matchedUserId}:`, error);
+            logger.error(`Error fetching match ${match.matchedUserId}:`, 'MessageScreen', error);
             return null;
           }
         })
@@ -191,7 +191,7 @@ export const MessageScreen: React.FC = () => {
 
       setMatches(sortedMatches);
     } catch (error) {
-      console.error('Error loading matches:', error);
+      logger.error('Error loading matches:', 'MessageScreen', error);
       Alert.alert('Hata', 'Eşleşmeler yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -225,7 +225,7 @@ export const MessageScreen: React.FC = () => {
       
       setMessageText('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', 'MessageScreen', error);
       Alert.alert('Hata', 'Mesaj gönderilirken bir hata oluştu');
     } finally {
       setSendingMessage(false);

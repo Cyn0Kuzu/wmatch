@@ -25,13 +25,13 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HORIZONTAL_CARD_WIDTH = 120;
 const HORIZONTAL_CARD_HEIGHT = HORIZONTAL_CARD_WIDTH * 1.5;
 
-// Enhanced Match Card Component (remains the same)
+// Enhanced Match Card Component
 const EnhancedMatchCard: React.FC<{ 
   user: any; 
   onPass: () => void; 
   onLike: () => void;
   currentMovie: any;
-}> = ({ user, onPass, onLike, currentMovie }) => {
+}> = React.memo(({ user, onPass, onLike, currentMovie }) => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'favorites' | 'watched'>('favorites');
   const [mediaType, setMediaType] = useState<'all' | 'movie' | 'tv'>('all');
@@ -172,7 +172,7 @@ const EnhancedMatchCard: React.FC<{
       {selectedMovie && <MovieDetailModal visible={showMovieModal} movie={selectedMovie} onClose={() => setShowMovieModal(false)} />}
     </Animated.View>
   );
-};
+});
 
 export const MatchScreen: React.FC = () => {
   const { authService, coreService, userDataManager } = useCoreEngine();
@@ -211,20 +211,34 @@ export const MatchScreen: React.FC = () => {
       setUsers(matches.filter(match => match && match.id !== user.uid));
       setCurrentUserIndex(0);
     } catch (error) {
-      console.error('Error loading matches:', error);
+      logger.error('Error loading matches:', 'MatchScreen', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePass = () => setCurrentUserIndex(prev => prev + 1);
-  const handleLike = async () => {
+  const handlePass = useCallback(async () => {
+    const currentUser = users[currentUserIndex];
+    if (!currentUser) return;
+    try {
+      const user = await authService.getCurrentUser();
+      if (user) {
+        await firestoreService.addToSwipedList(user.uid, currentUser.id);
+      }
+    } catch (error) {
+      logger.error('Error adding to swiped list:', 'MatchScreen', error);
+    }
+    setCurrentUserIndex(prev => prev + 1);
+  }, [users, currentUserIndex, authService]);
+
+  const handleLike = useCallback(async () => {
     const currentUser = users[currentUserIndex];
     if (!currentUser) return;
     try {
       const user = await authService.getCurrentUser();
       if (!user) return;
       await firestoreService.addToLikedList(user.uid, currentUser.id);
+      await firestoreService.addToSwipedList(user.uid, currentUser.id);
       const isMatch = await checkForMatch(user.uid, currentUser.id);
       if (isMatch) {
         Alert.alert('🎉 Eşleşme!', `${currentUser.username} ile eşleştiniz!`);
@@ -232,9 +246,9 @@ export const MatchScreen: React.FC = () => {
       }
       setCurrentUserIndex(prev => prev + 1);
     } catch (error) {
-      console.error('Error liking user:', error);
+      logger.error('Error liking user:', 'MatchScreen', error);
     }
-  };
+  }, [users, currentUserIndex, authService, currentMovie]);
 
   const checkForMatch = async (currentUserId: string, targetUserId: string) => {
     const targetUser = await firestoreService.getUserDocument(targetUserId);

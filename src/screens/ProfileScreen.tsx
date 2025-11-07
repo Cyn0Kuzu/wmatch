@@ -133,7 +133,7 @@ export const ProfileScreen: React.FC = () => {
           });
         }
       } catch (error) {
-        console.error('Username check error:', error);
+        logger.error('Username check error:', 'ProfileScreen', error);
         setUsernameValidation({
           isValid: false,
           isChecking: false,
@@ -166,7 +166,7 @@ export const ProfileScreen: React.FC = () => {
       }
       
       if (!userDoc) {
-        console.error('❌ Profile not found after retries');
+        logger.error('❌ Profile not found after retries', 'ProfileScreen');
         setLoading(false);
         return;
       }
@@ -222,7 +222,7 @@ export const ProfileScreen: React.FC = () => {
         loadWatched(user.uid),
       ]);
     } catch (error) {
-      console.error('❌ Error loading profile:', error);
+      logger.error('❌ Error loading profile:', 'ProfileScreen', error);
       Alert.alert('Hata', 'Profil yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -236,7 +236,7 @@ export const ProfileScreen: React.FC = () => {
         setFavorites(favoritesData);
       }
     } catch (error) {
-      console.error('Error loading favorites:', error);
+      logger.error('Error loading favorites:', 'ProfileScreen', error);
     }
   };
 
@@ -247,7 +247,7 @@ export const ProfileScreen: React.FC = () => {
         setWatched(watchedData);
       }
     } catch (error) {
-      console.error('Error loading watched:', error);
+      logger.error('Error loading watched:', 'ProfileScreen', error);
     }
   };
 
@@ -303,7 +303,7 @@ export const ProfileScreen: React.FC = () => {
       setShowEditModal(false);
       Alert.alert('✅ Başarılı', 'Bilgileriniz güncellendi!');
     } catch (error) {
-      console.error('Error saving edit:', error);
+      logger.error('Error saving edit:', 'ProfileScreen', error);
       Alert.alert('Hata', 'Güncelleme başarısız oldu');
     }
   };
@@ -330,7 +330,7 @@ export const ProfileScreen: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error updating photo order:', error);
+      logger.error('Error updating photo order:', 'ProfileScreen', error);
     }
   };
 
@@ -511,7 +511,7 @@ export const ProfileScreen: React.FC = () => {
         Alert.alert('✅ Başarılı', 'Fotoğraf eklendi!');
       }
     } catch (error) {
-      console.error('Error adding photo:', error);
+      logger.error('Error adding photo:', 'ProfileScreen', error);
       Alert.alert('Hata', 'Fotoğraf eklenirken bir hata oluştu');
     }
   };
@@ -543,7 +543,7 @@ export const ProfileScreen: React.FC = () => {
               
               Alert.alert('✅ Başarılı', 'Fotoğraf silindi!');
             } catch (error) {
-              console.error('Error deleting photo:', error);
+              logger.error('Error deleting photo:', 'ProfileScreen', error);
               Alert.alert('Hata', 'Fotoğraf silinirken bir hata oluştu');
             }
           },
@@ -565,7 +565,7 @@ export const ProfileScreen: React.FC = () => {
             try {
               await authService.signOut();
             } catch (error) {
-              console.error('Error signing out:', error);
+              logger.error('Error signing out:', 'ProfileScreen', error);
               Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu');
             }
           },
@@ -602,7 +602,7 @@ export const ProfileScreen: React.FC = () => {
                     const photoRef = ref(storage, photoUrl);
                     await deleteObject(photoRef);
                   } catch (photoError) {
-                    console.error('Photo delete error:', photoError);
+                    logger.error('Photo delete error:', 'ProfileScreen', photoError);
                   }
                 }
               }
@@ -617,7 +617,7 @@ export const ProfileScreen: React.FC = () => {
 
               Alert.alert('Hesap Silindi', 'Hesabınız başarıyla silindi.');
             } catch (error) {
-              console.error('Error deleting account:', error);
+              logger.error('Error deleting account:', 'ProfileScreen', error);
               Alert.alert('Hata', 'Hesap silinirken bir hata oluştu');
             }
           },
@@ -951,14 +951,10 @@ export const ProfileScreen: React.FC = () => {
           {activeTab === 'favorites' ? (
             filteredFavorites.length > 0 ? (
               <View style={styles.moviesGrid}>
-                {Array.from({ length: Math.ceil(filteredFavorites.length / 3) }).map((_, rowIndex) => (
-                  <View key={`row-${rowIndex}`} style={styles.movieRow}>
-                    {filteredFavorites.slice(rowIndex * 3, rowIndex * 3 + 3).map((item) => (
-                      <View key={`fav-${item.id}`}>
-                        {renderMovieCard(item)}
-                </View>
-              ))}
-            </View>
+                {filteredFavorites.map((item) => (
+                  <View key={`fav-${item.id}`}>
+                    {renderMovieCard(item)}
+                  </View>
                 ))}
               </View>
             ) : (
@@ -973,13 +969,9 @@ export const ProfileScreen: React.FC = () => {
             )
           ) : filteredWatched.length > 0 ? (
             <View style={styles.moviesGrid}>
-              {Array.from({ length: Math.ceil(filteredWatched.length / 3) }).map((_, rowIndex) => (
-                <View key={`row-${rowIndex}`} style={styles.movieRow}>
-                  {filteredWatched.slice(rowIndex * 3, rowIndex * 3 + 3).map((item) => (
-                    <View key={`watched-${item.id}`}>
-                      {renderMovieCard(item)}
-                    </View>
-                  ))}
+              {filteredWatched.map((item) => (
+                <View key={`watched-${item.id}`}>
+                  {renderMovieCard(item)}
                 </View>
               ))}
             </View>

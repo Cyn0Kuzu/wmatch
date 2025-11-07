@@ -103,7 +103,7 @@ export const WatchScreen: React.FC = () => {
       
       setLoading(false);
     } catch (error) {
-      console.error('Failed to initialize WatchScreen:', error);
+      logger.error('Failed to initialize WatchScreen:', 'WatchScreen', error);
       setLoading(false);
     }
   };
@@ -122,7 +122,7 @@ export const WatchScreen: React.FC = () => {
         }))
       });
     } catch (error) {
-      console.error('Failed to load currently watching:', error);
+      logger.error('Failed to load currently watching:', 'WatchScreen', error);
     }
   };
 
@@ -141,7 +141,7 @@ export const WatchScreen: React.FC = () => {
       setPopularTVShows(tvShows.slice(0, 10));
       setTopRatedTVShows(topTVShows.slice(0, 10));
     } catch (error) {
-      console.error('Failed to load initial content:', error);
+      logger.error('Failed to load initial content:', 'WatchScreen', error);
     }
   };
 
@@ -155,7 +155,7 @@ export const WatchScreen: React.FC = () => {
       setPopularMovies([...popularMovies, ...movies.slice(0, 10)]);
       setPopularMoviesPage(nextPage);
     } catch (error) {
-      console.error('Failed to load more popular movies:', error);
+      logger.error('Failed to load more popular movies:', 'WatchScreen', error);
     } finally {
       setLoadingPopularMovies(false);
     }
@@ -171,7 +171,7 @@ export const WatchScreen: React.FC = () => {
       setTopRatedMovies([...topRatedMovies, ...movies.slice(0, 10)]);
       setTopRatedMoviesPage(nextPage);
     } catch (error) {
-      console.error('Failed to load more top rated movies:', error);
+      logger.error('Failed to load more top rated movies:', 'WatchScreen', error);
     } finally {
       setLoadingTopRatedMovies(false);
     }
@@ -187,7 +187,7 @@ export const WatchScreen: React.FC = () => {
       setPopularTVShows([...popularTVShows, ...shows.slice(0, 10)]);
       setPopularTVShowsPage(nextPage);
     } catch (error) {
-      console.error('Failed to load more popular TV:', error);
+      logger.error('Failed to load more popular TV:', 'WatchScreen', error);
     } finally {
       setLoadingPopularTV(false);
     }
@@ -203,7 +203,7 @@ export const WatchScreen: React.FC = () => {
       setTopRatedTVShows([...topRatedTVShows, ...shows.slice(0, 10)]);
       setTopRatedTVShowsPage(nextPage);
     } catch (error) {
-      console.error('Failed to load more top rated TV:', error);
+      logger.error('Failed to load more top rated TV:', 'WatchScreen', error);
     } finally {
       setLoadingTopRatedTV(false);
     }
@@ -217,7 +217,7 @@ export const WatchScreen: React.FC = () => {
         loadInitialContent()
       ]);
     } catch (error) {
-      console.error('Failed to refresh:', error);
+      logger.error('Failed to refresh:', 'WatchScreen', error);
     } finally {
       setRefreshing(false);
     }
@@ -248,25 +248,35 @@ export const WatchScreen: React.FC = () => {
 
       setSearchResults(results.slice(0, 20));
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed:', 'WatchScreen', error);
       Alert.alert('Hata', 'Arama sırasında bir hata oluştu');
     } finally {
       setSearchLoading(false);
     }
   };
 
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
   // Auto-search when typing
   useEffect(() => {
     if (!searchExpanded) return;
-    
-    const timeoutId = setTimeout(() => {
+
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    searchTimeout.current = setTimeout(() => {
       handleSearch(searchQuery);
     }, 500); // Debounce 500ms
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+    };
   }, [searchQuery, searchCategory, searchExpanded]);
 
-  const renderMovieCard = (item: any, index: number, section: string) => {
+  const renderMovieCard = (item: any, index: number) => {
     const releaseDate = item.release_date || item.first_air_date || '';
     const year = releaseDate ? new Date(releaseDate).getFullYear() : (item.year || 'N/A');
     const rating = item.vote_average || item.rating;
@@ -561,7 +571,7 @@ export const WatchScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-              {searchResults.map((item, index) => renderMovieCard(item, index, 'search'))}
+              {searchResults.map((item, index) => <View key={`search-${item.id}-${index}`}>{renderMovieCard(item, index)}</View>)}
             </ScrollView>
           </View>
         )}
@@ -582,7 +592,7 @@ export const WatchScreen: React.FC = () => {
             }}
             scrollEventThrottle={16}
           >
-            {popularMovies.map((item, index) => renderMovieCard(item, index, 'popular-movies'))}
+            {popularMovies.map((item, index) => <View key={`popular-movies-${item.id}-${index}`}>{renderMovieCard(item, index)}</View>)}
             {loadingPopularMovies && (
               <View style={styles.loadingMore}>
                 <ActivityIndicator size="small" color="#E50914" />
@@ -607,7 +617,7 @@ export const WatchScreen: React.FC = () => {
             }}
             scrollEventThrottle={16}
           >
-            {topRatedMovies.map((item, index) => renderMovieCard(item, index, 'top-movies'))}
+            {topRatedMovies.map((item, index) => <View key={`top-movies-${item.id}-${index}`}>{renderMovieCard(item, index)}</View>)}
             {loadingTopRatedMovies && (
               <View style={styles.loadingMore}>
                 <ActivityIndicator size="small" color="#E50914" />
@@ -632,7 +642,7 @@ export const WatchScreen: React.FC = () => {
             }}
             scrollEventThrottle={16}
           >
-            {popularTVShows.map((item, index) => renderMovieCard(item, index, 'popular-tv'))}
+            {popularTVShows.map((item, index) => <View key={`popular-tv-${item.id}-${index}`}>{renderMovieCard(item, index)}</View>)}
             {loadingPopularTV && (
               <View style={styles.loadingMore}>
                 <ActivityIndicator size="small" color="#E50914" />
@@ -657,7 +667,7 @@ export const WatchScreen: React.FC = () => {
             }}
             scrollEventThrottle={16}
           >
-            {topRatedTVShows.map((item, index) => renderMovieCard(item, index, 'top-tv'))}
+            {topRatedTVShows.map((item, index) => <View key={`top-tv-${item.id}-${index}`}>{renderMovieCard(item, index)}</View>)}
             {loadingTopRatedTV && (
               <View style={styles.loadingMore}>
                 <ActivityIndicator size="small" color="#E50914" />
