@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "MWatch",
+    "slug": "mwatch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.memode.mwatch"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "com.memode.mwatch",
+      "versionCode": 1,
+      "permissions": [],
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "minSdkVersion": 21
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-dev-client"
+    ],
+    "scheme": "mwatch",
+    "extra": {
+      "eas": {
+        "projectId": "cc143bb3-8840-48c5-944a-0dd72e599d96"
+      }
+    },
+    "owner": "cayan"
+  }
+}

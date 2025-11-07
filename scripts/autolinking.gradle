@@ -1,0 +1,11 @@
+// Autolinking script for React Native
+// This file is required by Expo and React Native CLI
+
+def useExpoModules() {
+  // Expo modules configuration
+  // This is a placeholder for Expo autolinking
+}
+
+// Export the function for use in settings.gradle
+ext.useExpoModules = this.&useExpoModules
+
