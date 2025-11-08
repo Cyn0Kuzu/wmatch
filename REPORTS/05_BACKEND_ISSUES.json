@@ -1,0 +1,74 @@
+[
+  {
+    "id": "PERF-BE-001",
+    "kategori": "Backend Performans",
+    "dosyalar": ["src/services/MatchService.ts", "src/services/FirestoreService.ts"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "Tüm Kullanıcı Veritabanının İstemciye Çekilmesi",
+    "root_cause": "`MatchService`, eşleştirme algoritmasını çalıştırmadan önce `firestoreService.getAllUsers()` fonksiyonunu çağırarak `users` koleksiyonundaki tüm dökümanları istemcinin hafızasına yükler.",
+    "etki": "Aşırı yüksek Firestore okuma maliyetleri, yavaş eşleştirme süreci ve uygulamanın kullanıcı sayısı arttıkça tamamen ölçeklenemez hale gelmesi.",
+    "çözüm": {
+      "kısa_vadeli": "`getAllUsers` fonksiyonunu kaldırın veya en azından `limit(100)` gibi bir sınırla kullanın. Ancak bu, sorunu sadece geçici olarak hafifletir.",
+      "kalıcı": "Eşleştirme mantığını, veritabanı sorgularını sunucu tarafında yapan bir Firebase Callable Function'a taşıyın. İstemci, sadece işlenmiş sonuçları almalıdır."
+    },
+    "örnek_kod": "Firebase Function Kodu:\n\nconst usersRef = admin.firestore().collection('users');\nconst q = usersRef.where('profile.age', '>=', 25).limit(100);\nconst snapshot = await q.get();",
+    "test_senaryosu": [
+      "Network sekmesinden, 'MatchScreen'e girildiğinde `users` koleksiyonunun tamamının indirilmediğini doğrulayın."
+    ]
+  },
+  {
+    "id": "PERF-BE-002",
+    "kategori": "Backend Performans",
+    "dosyalar": ["src/services/MatchService.ts"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "Eşleştirme Algoritmasının İstemci Tarafında Çalıştırılması",
+    "root_cause": "Tüm kullanıcıları filtreleme, her birinin film listelerini çekme ve eşleşme skoru hesaplama gibi yoğun hesaplama gerektiren işlemlerin tamamı istemci cihazında (client-side) yapılmaktadır.",
+    "etki": "Düşük donanımlı cihazlarda uygulamanın yavaşlaması, donması veya çökmesi. Yüksek pil tüketimi. İş mantığının güvenli olmaması.",
+    "çözüm": {
+      "kısa_vadeli": "Algoritmanın karmaşıklığını azaltın; örneğin, daha az kullanıcı üzerinde çalıştırın veya daha basit skorlama mantığı kullanın.",
+      "kalıcı": "Tüm eşleştirme algoritmasını, istemciden sadece filtreleri alan ve sonuçları dönen bir Firebase Callable Function'a taşıyın. Bu, yükü sunucuya aktarır ve performansı stabilize eder."
+    },
+    "örnek_kod": "İstemci Kodu:\n\nconst findMatches = httpsCallable(functions, 'findMatches');\nconst result = await findMatches({ ageRange: [25, 35] });",
+    "test_senaryosu": [
+      "Uygulamanın profil oluşturucusunu (profiler) kullanarak, 'MatchScreen'deyken CPU kullanımının kabul edilebilir seviyelerde olduğunu doğrulayın."
+    ]
+  },
+  {
+    "id": "PERF-BE-003",
+    "kategori": "Backend Performans",
+    "dosyalar": ["src/services/MatchService.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "`MatchService` İçindeki N+1 Sorgu Problemi",
+    "root_cause": "`getCurrentlyWatchingMatches` fonksiyonu, tüm kullanıcıları çektikten sonra, bir döngü içinde her bir kullanıcı için ayrı ayrı `userDataManager.getCurrentlyWatching(userId)` fonksiyonunu çağırır.",
+    "etki": "Tek bir eşleştirme isteği, yüzlerce veya binlerce ayrı Firestore okuma işlemine neden olur. Bu, hem çok yavaş hem de çok maliyetlidir.",
+    "çözüm": {
+      "kısa_vadeli": "Mümkün olan yerlerde `Promise.all` kullanarak sorguları paralelleştirin, ancak bu temel sorunu çözmez.",
+      "kalıcı": "Sunucu tarafı eşleştirme fonksiyonunda, verileri daha akıllıca sorgulayın. Örneğin, `currentlyWatching` alanında ortak film ID'lerini aramak için `array-contains-any` gibi sorgu operatörlerini kullanın veya veriyi bu tür sorguları destekleyecek şekilde yeniden yapılandırın."
+    },
+    "örnek_kod": "Firestore Sorgusu:\n\nconst q = query(usersRef, where('currentlyWatchingMovieIds', 'array-contains-any', currentUserMovieIds));",
+    "test_senaryosu": [
+      "Firebase konsolundan Firestore kullanım metriklerini izleyerek, eşleştirme işlemi sırasında okuma sayısının makul seviyelerde olduğunu doğrulayın."
+    ]
+  },
+  {
+    "id": "PERF-BE-004",
+    "kategori": "Backend Performans",
+    "dosyalar": ["firestore.indexes.json"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Eksik Firestore İndeksleri",
+    "root_cause": "Eşleştirme algoritmasının gerektirdiği karmaşık sorgular (örneğin, yaşa, cinsiyete ve film zevkine göre filtreleme) için gerekli birleşik (composite) indekslerin `firestore.indexes.json` dosyasında tanımlanmamış olması.",
+    "etki": "İndekslenmemiş sorgular çok yavaştır ve Firestore tarafından reddedilebilir. Firebase konsolunda sürekli olarak indeks oluşturma uyarıları görünür.",
+    "çözüm": {
+      "kısa_vadeli": "Firebase konsolunun önerdiği indeksleri manuel olarak oluşturun.",
+      "kalıcı": "Sunucu tarafı eşleştirme fonksiyonunda kullanılacak tüm sorguları belirleyin ve bu sorguları desteklemek için gerekli tüm birleşik indeksleri `firestore.indexes.json` dosyasına ekleyin. Bu dosyayı kaynak koduyla birlikte sürüm kontrolünde tutun."
+    },
+    "örnek_kod": "firestore.indexes.json Örneği:\n\n{\n  \"indexes\": [\n    {\n      \"collectionGroup\": \"users\",\n      \"queryScope\": \"COLLECTION\",\n      \"fields\": [\n        { \"fieldPath\": \"profile.gender\", \"order\": \"ASCENDING\" },\n        { \"fieldPath\": \"profile.age\", \"order\": \"ASCENDING\" }\n      ]\n    }\n  ]\n}",
+    "test_senaryosu": [
+      "Eşleştirme fonksiyonunu çalıştırdıktan sonra Firebase konsolunda yeni indeks önerileri olup olmadığını kontrol edin."
+    ]
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "ARCH-001",
+    "kategori": "Mimari",
+    "dosyalar": ["src/core/CoreService.ts", "src/core/CoreEngine.tsx"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "Yüksek Bağımlılık (Tight Coupling) ve 'God Object' Anti-Pattern'i",
+    "root_cause": "Tüm servislerin tek bir Singleton (`CoreService`) içinde manuel olarak başlatılması ve birbirine bağlanması. Bu, Service Locator anti-pattern'inin bir uygulamasıdır.",
+    "etki": "Düşük test edilebilirlik, yüksek kırılganlık ve zor sürdürülebilirlik. Bir servisi değiştirmek, tüm sistemi etkileyebilir.",
+    "çözüm": {
+      "kısa_vadeli": "Servislerin doğrudan `CoreService`'e erişimini azaltmak ve bağımlılıkları constructor aracılığıyla manuel olarak geçmek.",
+      "kalıcı": "`tsyringe` veya `inversify` gibi bir Dependency Injection (DI) container'ı kullanarak servis bağımlılıklarını otomatik olarak yönetmek ve `CoreService`'i tamamen kaldırmak."
+    },
+    "örnek_kod": "DI Container Örneği (tsyringe):\n\n@singleton()\nexport class AuthService {\n  constructor(private firebaseService: FirebaseService) {}\n}",
+    "test_senaryosu": [
+      "Servislerin birim testlerinin (unit tests) bağımlılıkları mock'lanarak kolayca yazılabildiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "ARCH-002",
+    "kategori": "Mimari",
+    "dosyalar": ["src/store/useAppStore.ts"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "Monolitik State Management",
+    "root_cause": "Tüm global uygulama durumunun (kullanıcı, filmler, maçlar, ayarlar, UI durumu) tek bir Zustand store'unda tutulması.",
+    "etki": "Gereksiz component re-render'ları nedeniyle performans sorunları. State yönetimi karmaşıklaştıkça yönetilebilirlik ve ölçeklenebilirlik azalır.",
+    "çözüm": {
+      "kısa_vadeli": "Zustand'ın `useStore` hook'u ile state'in sadece gerekli kısımlarını seçerek (`shallow` karşılaştırma ile) re-render'ları azaltmak.",
+      "kalıcı": "Zustand'ın 'slice pattern'ini uygulayarak state'i mantıksal olarak `useUserStore`, `useMovieStore`, `useMatchStore` gibi daha küçük, odaklanmış store'lara bölmek."
+    },
+    "örnek_kod": "Slice Pattern Örneği:\n\nconst createUserSlice = (set) => ({\n  user: null,\n  setUser: (user) => set({ user }),\n});\n\nconst createMovieSlice = (set) => ({\n  movies: [],\n  setMovies: (movies) => set({ movies }),\n});",
+    "test_senaryosu": [
+      "Bir store'daki değişikliğin, diğer store'lara abone olan component'leri yeniden render etmediğini doğrulayın."
+    ]
+  },
+  {
+    "id": "ARCH-003",
+    "kategori": "Mimari",
+    "dosyalar": ["src/services/AuthService.ts", "src/services/MatchService.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "İş Mantığının Servis Katmanıyla Karışması",
+    "root_cause": "İş mantığının (örneğin, eşleşme algoritması) veri erişim koduyla (örneğin, Firestore sorguları) aynı servis sınıfları içinde yer alması. Bu, 'separation of concerns' ilkesini ihlal eder.",
+    "etki": "İş mantığını, veri katmanından bağımsız olarak test etmek zordur. Mantık, belirli bir veritabanına veya API'ye sıkı sıkıya bağlı hale gelir.",
+    "çözüm": {
+      "kısa_vadeli": "Servisler içindeki karmaşık iş mantığını özel (private) helper fonksiyonlarına ayırmak.",
+      "kalıcı": "İş mantığını, servislerden (repository olarak kullanılırlar) bağımsız olan `UseCase` veya `Interactor` sınıflarına taşımak. Bu, temiz mimari (clean architecture) prensiplerine daha yakındır."
+    },
+    "örnek_kod": "UseCase Örneği:\n\nclass FindMatchesUseCase {\n  constructor(private userRepository: IUserRepository) {}\n\n  execute(userId: string) {\n    // İş mantığı burada yer alır\n  }\n}",
+    "test_senaryosu": [
+      "Bir `UseCase`'in, sahte (mock) repository'ler kullanılarak birim testinin yazılabildiğini doğrulayın."
+    ]
+  }
+]

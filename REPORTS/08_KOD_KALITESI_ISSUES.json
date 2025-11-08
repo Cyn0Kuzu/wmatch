@@ -1,0 +1,56 @@
+[
+  {
+    "id": "CQ-001",
+    "kategori": "Kod Kalitesi",
+    "dosyalar": ["tsconfig.json"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "TypeScript `strict` Modu Devre Dışı",
+    "root_cause": "`tsconfig.json` dosyasında `\"strict\": false` ve `\"noImplicitAny\": false` ayarlarının kullanılması. Bu, TypeScript'in sağladığı tip güvenliğini büyük ölçüde azaltır.",
+    "etki": "Kodda `null` ve `undefined` kaynaklı beklenmedik çalışma zamanı hataları. `any` tipinin yaygın kullanımı nedeniyle refactoring işlemlerinin riskli hale gelmesi ve kodun anlaşılırlığının azalması.",
+    "çözüm": {
+      "kısa_vadeli": "İlk adım olarak `\"noImplicitAny\": true` ayarını etkinleştirin ve ortaya çıkan tip hatalarını düzeltin.",
+      "kalıcı": "Kademeli olarak `\"strictNullChecks\": true` ve nihayetinde `\"strict\": true` ayarını etkinleştirerek projenin tamamında tam tip güvenliği sağlayın."
+    },
+    "örnek_kod": "// tsconfig.json\n{\n  \"compilerOptions\": {\n    \"strict\": true\n  }\n}",
+    "test_senaryosu": [
+      "Projenin `npx tsc --noEmit` komutuyla `strict` modda başarıyla derlendiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "CQ-002",
+    "kategori": "Kod Kalitesi",
+    "dosyalar": ["N/A"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "ESLint Yapılandırmasının Eksikliği",
+    "root_cause": "Projede `.eslintrc.js` veya benzeri bir linter yapılandırma dosyasının bulunmaması.",
+    "etki": "Kod stilinde tutarsızlık, yaygın programlama hatalarının (örn. kullanılmayan değişkenler) gözden kaçması ve kodun okunabilirliğinin düşmesi.",
+    "çözüm": {
+      "kısa_vadeli": "Projeye `eslint` ve `prettier` paketlerini ekleyin ve temel bir `react-native-community` yapılandırması ile başlayın.",
+      "kalıcı": "Airbnb stil rehberi gibi kapsamlı bir yapılandırma kurun. TypeScript, React Hooks ve React Native için özel kuralları etkinleştirin. `lint` script'ini CI pipeline'ına entegre ederek kod kalitesini otomatik olarak denetleyin."
+    },
+    "örnek_kod": "// package.json scripts\n\"lint\": \"eslint . --ext .js,.jsx,.ts,.tsx\"",
+    "test_senaryosu": [
+      "`npm run lint` komutunun proje genelinde çalıştığını ve hataları raporladığını doğrulayın."
+    ]
+  },
+  {
+    "id": "CQ-003",
+    "kategori": "Kod Kalitesi",
+    "dosyalar": ["src/services/MatchService.ts", "src/screens/LikedScreen.tsx"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Kod Tekrarı (Code Duplication) Potansiyeli",
+    "root_cause": "Merkezi bir iş mantığı katmanının (domain/use case) olmaması, benzer veri çekme ve işleme mantıklarının farklı servisler ve ekranlar arasında kopyalanmasına yol açar.",
+    "etki": "Bir mantık değişikliği gerektiğinde birden fazla yerde güncelleme yapma zorunluluğu. Bir yerde düzeltilen bir hatanın, kopyalandığı diğer yerlerde kalması riski.",
+    "çözüm": {
+      "kısa_vadeli": "Benzer veri çekme mantıklarını (`fetchUsersByIds` gibi) `src/utils` veya `src/hooks` altında merkezi ve yeniden kullanılabilir fonksiyonlara taşıyın.",
+      "kalıcı": "Mimari raporda önerildiği gibi, tüm iş mantığını UI ve veri katmanlarından bağımsız olan 'Use Case' sınıflarına taşıyarak mantığı merkezi ve yeniden kullanılabilir hale getirin."
+    },
+    "örnek_kod": "// Custom Hook Örneği\nconst useUserList = (userIds) => {\n  const [users, setUsers] = useState([]);\n  // ... veri çekme mantığı\n  return users;\n}",
+    "test_senaryosu": [
+      "Farklı ekranların aynı custom hook'u veya utility fonksiyonunu kullanarak aynı veriyi başarılı bir şekilde alabildiğini doğrulayın."
+    ]
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "SM-001",
+    "kategori": "State Management",
+    "dosyalar": ["src/store/useAppStore.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Monolitik Store Yapısı ve Gereksiz Yeniden Render'lar",
+    "root_cause": "Tüm uygulama durumunun (kullanıcı, filmler, UI durumu vb.) tek bir global Zustand store'unda birleştirilmesi. Bu, state'in alakasız parçalarındaki değişikliklerin bile component'leri yeniden render etmesine neden olabilir.",
+    "etki": "Uygulama genelinde performans düşüşü, 'render fırtınaları' (render storms) ve state yönetimi karmaşıklaştıkça azalan kod okunabilirliği ve bakım zorluğu.",
+    "çözüm": {
+      "kısa_vadeli": "Component'lerde state'i seçerken, `useAppStore(state => state.user)` gibi, sadece ihtiyaç duyulan parçayı seçen selector fonksiyonları kullanın ve gerekiyorsa `shallow` karşılaştırma ekleyin.",
+      "kalıcı": "Zustand'ın 'slice pattern'ini benimseyin. Monolitik store'u, her biri kendi state'ini ve action'larını yöneten daha küçük, odaklanmış slice'lara (`userSlice`, `movieSlice`, `uiSlice` vb.) ayırın. Bu, mantıksal ayrım sağlar ve performansı optimize eder."
+    },
+    "örnek_kod": "// Slice Pattern Örneği\nexport const createUserSlice = (set) => ({\n  user: null,\n  setUser: (user) => set({ user }),\n});\n\nexport const useAppStore = create((...a) => ({\n  ...createUserSlice(...a),\n  // ...diğer slice'lar\n}));",
+    "test_senaryosu": [
+      "React DevTools Profiler kullanarak, `searchQuery` gibi bir UI state'i güncellendiğinde, sadece bu state'i kullanan component'lerin yeniden render olduğunu, `UserProfile` gibi alakasız component'lerin render olmadığını doğrulayın."
+    ]
+  },
+  {
+    "id": "SM-002",
+    "kategori": "State Management",
+    "dosyalar": ["src/store/useAppStore.ts"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "İş Mantığının Store İçinde Yer Alması",
+    "root_cause": "`likeMatch` gibi action'lar, state'i güncellemenin yanı sıra bir eşleşmeyi bulma, filtreleme gibi iş mantığı adımlarını da içeriyor. Bu, iş mantığını state yönetimi katmanına sızdırır.",
+    "etki": "İş mantığının UI'dan veya state'ten bağımsız olarak test edilmesini zorlaştırır. Mantığın yeniden kullanılabilirliğini engeller.",
+    "çözüm": {
+      "kısa_vadeli": "Karmaşık mantığı, store içinde `_privateHelperFunction` gibi özel fonksiyonlara ayırın.",
+      "kalıcı": "İş mantığını, store'dan tamamen bağımsız olan saf utility fonksiyonlarına veya 'Use Case' sınıflarına taşıyın. Store'daki action'lar sadece önceden işlenmiş veriyi alıp `set()` yapmaktan sorumlu olmalıdır."
+    },
+    "örnek_kod": "// Utility Fonksiyonu\nexport const filterMatches = (matches, matchId) => { ... };\n\n// Store Action'ı\nlikeMatch: (matchId) => {\n  const filtered = filterMatches(get().matches, matchId);\n  set({ matches: filtered });\n}",
+    "test_senaryosu": [
+      "İş mantığı fonksiyonunun (örn. `filterMatches`), Zustand'dan bağımsız olarak birim testlerinin (unit test) yazılabildiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "SM-003",
+    "kategori": "State Management",
+    "dosyalar": ["src/store/useAppStore.ts"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Verimsiz State Persistence (Kalıcılık)",
+    "root_cause": "`persist` middleware'i, `user` nesnesinin tamamı gibi büyük ve uygulama başlangıcı için gereksiz olan verileri `AsyncStorage`'a kaydediyor.",
+    "etki": "Uygulamanın başlangıç süresini (hydration) yavaşlatabilir ve cihazda gereksiz depolama alanı kullanır.",
+    "çözüm": {
+      "kısa_vadeli": "`partialize` fonksiyonunda `user` nesnesinden sadece `user.id` gibi temel bilgileri saklayın.",
+      "kalıcı": "`partialize` fonksiyonunu, oturumlar arası kalıcılığı gerçekten gereken minimum state'i (örn. `isAuthenticated` durumu, `theme` tercihi) saklayacak şekilde yeniden yapılandırın. Diğer tüm dinamik veriler (kullanıcı profili, film listeleri vb.) uygulama her açıldığında sunucudan taze olarak çekilmelidir."
+    },
+    "örnek_kod": "partialize: (state) => ({\n  isAuthenticated: state.isAuthenticated,\n  theme: state.settings.preferences.theme,\n})",
+    "test_senaryosu": [
+      "Uygulamayı kapatıp açtıktan sonra `AsyncStorage`'ı inceleyerek sadece `isAuthenticated` ve `theme` gibi seçilmiş verilerin saklandığını doğrulayın."
+    ]
+  }
+]

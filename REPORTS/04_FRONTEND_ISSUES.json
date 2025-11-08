@@ -1,0 +1,74 @@
+[
+  {
+    "id": "PERF-FE-001",
+    "kategori": "Frontend Performans",
+    "dosyalar": ["src/screens/LikedScreen.tsx"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "N+1 Sorgu Problemi",
+    "root_cause": "`loadLikedUsers` fonksiyonu, bir döngü içinde her bir kullanıcı ID'si için ayrı bir `firestoreService.getUserDocument` sorgusu çalıştırıyor. Bu, beğeni sayısı arttıkça Firestore okuma sayısını ve ekran yüklenme süresini katlanarak artırır.",
+    "etki": "Ekranın çok yavaş yüklenmesi, yüksek Firestore maliyetleri ve kötü kullanıcı deneyimi.",
+    "çözüm": {
+      "kısa_vadeli": "Kullanıcı ID'lerini 10'luk gruplara ayırın ve her grup için tek bir `where('__name__', 'in', [...userIds])` sorgusu kullanarak verileri toplu olarak çekin. Bu, sorgu sayısını önemli ölçüde azaltacaktır.",
+      "kalıcı": "İlgili kullanıcı profillerini sunucu tarafında toplayıp tek bir yanıtla döndüren bir Firebase Callable Function oluşturun. Bu, istemci üzerindeki yükü ve karmaşıklığı ortadan kaldırır."
+    },
+    "örnek_kod": "const q = query(collection(db, 'users'), where('__name__', 'in', userIds.slice(0, 10)));",
+    "test_senaryosu": [
+      "100'den fazla beğenisi olan bir kullanıcının 'LikedScreen' ekranını kabul edilebilir bir sürede (örn. < 2 saniye) açabildiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "PERF-FE-002",
+    "kategori": "Frontend Performans",
+    "dosyalar": ["src/screens/MatchScreen.tsx"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Gereksiz Yeniden Render'lar",
+    "root_cause": "Her swipe işleminde (`handleLike`/`handlePass`), `MatchScreen` component'inin state'i (`currentUserIndex`) güncellenir. Bu, tüm ekranın ve `EnhancedMatchCard` component'inin yeniden render olmasına neden olur. `React.memo` etkisizdir çünkü `user` prop'u her seferinde yeni bir nesnedir.",
+    "etki": "Animasyonlarda takılma (jank), yavaş swipe geçişleri ve artan pil tüketimi.",
+    "çözüm": {
+      "kısa_vadeli": "`EnhancedMatchCard` component'ini `React.memo` ile sarmalayın ve `onLike`/`onPass` fonksiyonlarını `useCallback` ile memoize edin. `user` prop'unun referansının değişmediğinden emin olun.",
+      "kalıcı": "`users` dizisini `FlatList` ile render edin. `FlatList`, component'leri sanallaştırarak sadece görünürdeki elemanları render eder ve memoization'ı etkili hale getirir."
+    },
+    "örnek_kod": "<FlatList data={users} renderItem={({ item }) => <EnhancedMatchCard user={item} />} keyExtractor={item => item.id} horizontal pagingEnabled />",
+    "test_senaryosu": [
+      "React DevTools Profiler kullanarak, bir swipe işleminden sonra `MatchScreen`'in değil, sadece ilgili component'lerin render olduğunu doğrulayın."
+    ]
+  },
+  {
+    "id": "PERF-FE-003",
+    "kategori": "Frontend Performans",
+    "dosyalar": ["src/screens/MatchScreen.tsx"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Büyük ve Karmaşık Component",
+    "root_cause": "`EnhancedMatchCard` component'i, kendi içinde sekmeler, filtreler, yatay listeler gibi birçok farklı sorumluluğu ve state'i barındıran monolitik bir yapıdadır.",
+    "etki": "Component'in iç state değişiklikleri bile (örneğin, sekme değişimi) tüm kartın yeniden render olmasına neden olabilir. Kodun bakımı ve optimizasyonu zordur.",
+    "çözüm": {
+      "kısa_vadeli": "Kart içindeki daha küçük, saf (pure) component'leri `React.memo` ile sarmalayın.",
+      "kalıcı": "`EnhancedMatchCard`'ı `UserProfileHeader`, `InterestTags`, `MovieTabs` ve `HorizontalMovieList` gibi daha küçük, kendi state'ini yöneten ve yeniden kullanılabilir alt component'lere ayırın."
+    },
+    "örnek_kod": "const EnhancedMatchCard = ({ user }) => (\n  <View>\n    <UserProfileHeader user={user} />\n    <MovieTabs movies={user.movies} />\n  </View>\n);",
+    "test_senaryosu": [
+      "React DevTools Profiler kullanarak, `MovieTabs` içindeki bir sekme değişiminin `UserProfileHeader`'ı yeniden render etmediğini doğrulayın."
+    ]
+  },
+  {
+    "id": "PERF-FE-004",
+    "kategori": "Frontend Performans",
+    "dosyalar": ["src/screens/MatchScreen.tsx", "src/screens/DiscoverScreen.tsx"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "`ScrollView` ile Uzun Listelerin Render Edilmesi",
+    "root_cause": "Kullanıcının favori/izlenen filmleri gibi potansiyel olarak uzun listeler, `ScrollView` ve `.map()` kullanılarak render edilmektedir. `ScrollView` tüm elemanları aynı anda render eder.",
+    "etki": "Listenin uzunluğuna bağlı olarak artan hafıza kullanımı ve yavaş başlangıç render süresi.",
+    "çözüm": {
+      "kısa_vadeli": "Mevcut `ScrollView`'ları, `FlatList` ile değiştirin.",
+      "kalıcı": "En yüksek performans gerektiren listeler için `@shopify/flash-list` kütüphanesini değerlendirin. `getItemLayout` prop'unu, eleman yüksekliği sabit olan `FlatList`'lerde kullanarak optimizasyonu artırın."
+    },
+    "örnek_kod": "<FlatList data={movies} renderItem={({ item }) => <MovieCard movie={item} />} keyExtractor={item => item.id} horizontal />",
+    "test_senaryosu": [
+      "Uzun bir film listesi içeren bir profilin, takılma olmadan akıcı bir şekilde scroll edilebildiğini doğrulayın."
+    ]
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "DB-001",
+    "kategori": "Veritabanı",
+    "dosyalar": ["firestore.indexes.json"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "Hiçbir Birleşik (Composite) İndeks Tanımlanmamış",
+    "root_cause": "`firestore.indexes.json` dosyası boş. Bu, birden fazla alana göre filtreleme veya sıralama gerektiren karmaşık sorguların verimsiz çalışmasına veya Firestore tarafından reddedilmesine neden olur.",
+    "etki": "Son derece yavaş sorgular, backend performans darboğazları ve uygulamanın ölçeklenememesi.",
+    "çözüm": {
+      "kısa_vadeli": "Firebase konsolunun otomatik olarak önerdiği indeksleri acil olarak oluşturun.",
+      "kalıcı": "Sunucu tarafı eşleştirme mantığının gerektirdiği tüm sorgular için gerekli birleşik indeksleri `firestore.indexes.json` dosyasına tanımlayın ve kaynak koduyla birlikte sürüm kontrolü altında tutun."
+    },
+    "örnek_kod": "{\n  \"indexes\": [\n    {\n      \"collectionGroup\": \"users\",\n      \"queryScope\": \"COLLECTION\",\n      \"fields\": [\n        { \"fieldPath\": \"profile.gender\", \"order\": \"ASCENDING\" },\n        { \"fieldPath\": \"profile.age\", \"order\": \"ASCENDING\" }\n      ]\n    }\n  ]\n}",
+    "test_senaryosu": [
+      "Eşleştirme sorguları çalıştırıldıktan sonra Firebase konsolunda yeni indeks önerilerinin görünmediğini doğrulayın."
+    ]
+  },
+  {
+    "id": "DB-002",
+    "kategori": "Veritabanı",
+    "dosyalar": ["src/database/DatabaseSchema.ts", "src/services/FirestoreService.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Şema Tutarsızlığı: Planlanan vs. Uygulanan",
+    "root_cause": "`DatabaseSchema.ts`'te `USER_MATCHES` gibi normalize edilmiş ayrı koleksiyonlar planlanmışken, uygulama `UserProfile` dökümanı içindeki `social.matches` gibi denormalize edilmiş dizileri kullanıyor.",
+    "etki": "Veri tutarsızlığı riski, sorgulama zorlukları ve Firestore'un 1 MB'lık döküman boyutu sınırını aşma potansiyeli.",
+    "çözüm": {
+      "kısa_vadeli": "Yeni verileri (eşleşmeler, beğeniler) planlanan normalize koleksiyonlara yazmaya başlayın.",
+      "kalıcı": "Mevcut denormalize verileri, bir migration script'i (Firebase Function) kullanarak yeni normalize koleksiyonlara taşıyın ve uygulamayı bu yeni yapıyı kullanacak şekilde güncelleyin."
+    },
+    "örnek_kod": "// Yeni eşleşmeyi 'matches' koleksiyonuna yaz\nawait addDoc(collection(db, 'matches'), { user1: '...', user2: '...' });",
+    "test_senaryosu": [
+      "Yeni bir eşleşme oluştuğunda, `UserProfile` dökümanı yerine `matches` koleksiyonuna yeni bir döküman eklendiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "DB-003",
+    "kategori": "Veritabanı",
+    "dosyalar": ["src/database/DatabaseSchema.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Monolitik ve Aşırı İç İçe (Nested) `UserProfile` Dökümanı",
+    "root_cause": "Ayarlar, istatistikler, sosyal bilgiler gibi mantıksal olarak ayrı olan verilerin tamamı tek bir büyük `UserProfile` dökümanı içinde iç içe nesneler olarak saklanıyor.",
+    "etki": "Küçük güncellemeler için bile büyük bir dökümanın tamamının okunup yazılması (verimsizlik ve yüksek maliyet). İstemcinin gereksiz veri indirmesi.",
+    "çözüm": {
+      "kısa_vadeli": "Güncelleme yaparken `updateDoc` ile sadece belirli alanları (dot notation kullanarak, örn. `social.followers`) güncelleyin.",
+      "kalıcı": "Sık güncellenen veya ayrı olarak erişilen veri gruplarını (`settings`, `statistics` gibi) `UserProfile` dökümanının altında kendi subcollection'larına taşıyın. Bu, daha granüler okuma/yazma ve daha sıkı güvenlik kuralları sağlar."
+    },
+    "örnek_kod": "// Settings'i subcollection olarak güncelle\nconst settingsRef = doc(db, 'users', userId, 'settings', 'userSettings');\nawait updateDoc(settingsRef, { theme: 'dark' });",
+    "test_senaryosu": [
+      "Bir kullanıcının temasını değiştirmenin, ana `UserProfile` dökümanında bir yazma işlemine neden olmadığını, sadece `settings` subcollection'ını güncellediğini doğrulayın."
+    ]
+  }
+]

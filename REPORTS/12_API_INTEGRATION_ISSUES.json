@@ -1,0 +1,56 @@
+[
+  {
+    "id": "API-001",
+    "kategori": "API Integration",
+    "dosyalar": ["src/services/TMDBService.ts"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "Hardcoded TMDB API Anahtarı",
+    "root_cause": "TMDB API anahtarı, `private apiKey: string = '...'` şeklinde doğrudan kaynak kodunun içine yazılmıştır. Bu, çok ciddi bir güvenlik zafiyetidir.",
+    "etki": "Uygulamanın kaynak kodunun ifşa olması durumunda (örn. APK'nın decompile edilmesi), API anahtarı çalınabilir. Bu, API'nin kötüye kullanılmasına, rate limit'lerin aşılmasına ve servisin WMatch uygulaması için engellenmesine yol açabilir.",
+    "çözüm": {
+      "kısa_vadeli": "Mevcut API anahtarını TMDB panelinden derhal iptal edin. Yeni anahtarı bir `.env` dosyasına taşıyın ve `.gitignore`'a ekleyin.",
+      "kalıcı": "`react-native-dotenv` gibi bir kütüphane kullanarak API anahtarını ortam değişkenlerinden güvenli bir şekilde okuyun. Production build'leri için EAS Secrets gibi güvenli sır yönetimi araçlarını kullanın."
+    },
+    "örnek_kod": "// .env dosyası\nTMDB_API_KEY=your_new_secret_key\n\n// TMDBService.ts\nimport { TMDB_API_KEY } from '@env';\nprivate apiKey: string = TMDB_API_KEY;",
+    "test_senaryosu": [
+      "Proje dosyaları içinde `grep` komutuyla arama yaparak hiçbir API anahtarının kaynak kodunda kalmadığını doğrulayın."
+    ]
+  },
+  {
+    "id": "API-002",
+    "kategori": "API Integration",
+    "dosyalar": ["src/services/TMDBService.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Tutarsız ve Eksik Hata Yönetimi",
+    "root_cause": "`TMDBService` içindeki birçok metod, API istekleri başarısız olduğunda hatayı sadece `console.error` ile loglayıp `null` veya boş nesne dönüyor. Merkezi `errorHandler` tutarlı bir şekilde kullanılmıyor.",
+    "etki": "API hatalarının bir kısmı merkezi olarak izlenemez (silent failures), bu da hata ayıklamayı zorlaştırır. Kullanıcı, bir hata olduğunda ne olduğunu anlamadan boş bir ekranla karşılaşabilir.",
+    "çözüm": {
+      "kısa_vadeli": "`TMDBService` içindeki tüm `catch` bloklarının merkezi `errorHandler.handleError` fonksiyonunu çağırdığından emin olun.",
+      "kalıcı": "Tüm `TMDBService` metodlarını, `react-query`'nin `useQuery` hook'u arkasına taşıyın. `react-query`, `isError` ve `error` gibi durumları otomatik olarak yönetir ve hata yönetimini standartlaştırır."
+    },
+    "örnek_kod": "catch (error) {\n  errorHandler.handleError({\n    type: ErrorType.API,\n    message: 'Failed to fetch movie details',\n    // ...\n  });\n  return null;\n}",
+    "test_senaryosu": [
+      "TMDB API'ye giden bir isteği (network tabından) manuel olarak block'layarak, hatanın merkezi `ErrorHandler` tarafından yakalandığını ve (varsa) kullanıcıya bir bildirim gösterildiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "API-003",
+    "kategori": "API Integration",
+    "dosyalar": ["src/services/TMDBService.ts"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Ağ Hatalarına Karşı Yeniden Deneme (Retry) Mekanizmasının Eksikliği",
+    "root_cause": "API isteklerini yapan `axios` istemcisi, geçici ağ hatalarında veya sunucu tarafı 5xx hatalarında istekleri otomatik olarak yeniden denemek için yapılandırılmamıştır.",
+    "etki": "Anlık ve geçici ağ sorunları, uygulamanın veri çekme işlemlerinin kalıcı olarak başarısız olmasına neden olur, bu da uygulamanın dayanıklılığını (resilience) düşürür.",
+    "çözüm": {
+      "kısa_vadeli": "`axios-retry` kütüphanesini `axios` istemcisine ekleyerek, ağ hatalarında ve 5xx hatalarında isteklerin 3 kez, artan gecikmeyle (exponential backoff) yeniden denenmesini sağlayın.",
+      "kalıcı": "`react-query`'ye geçiş yapın. `react-query`, varsayılan olarak yeniden deneme mekanizmasını içerir ve bu konuda daha gelişmiş yapılandırma seçenekleri sunar."
+    },
+    "örnek_kod": "import axiosRetry from 'axios-retry';\n\naxiosRetry(this.apiClient, { \n  retries: 3, \n  retryDelay: axiosRetry.exponentialDelay \n});",
+    "test_senaryosu": [
+      "Uygulama bir API isteği yaparken internet bağlantısını 1-2 saniyeliğine kesip geri açın. İsteğin, manuel bir müdahale olmadan başarıyla tamamlandığını doğrulayın."
+    ]
+  }
+]

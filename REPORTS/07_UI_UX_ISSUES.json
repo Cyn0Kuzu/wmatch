@@ -1,0 +1,75 @@
+[
+  {
+    "id": "UX-001",
+    "kategori": "UI/UX",
+    "dosyalar": ["src/screens/RegisterScreen.tsx"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "sorun": "Aşırı Uzun ve Karmaşık 5 Adımlı Kayıt Süreci",
+    "root_cause": "Kullanıcıdan, uygulamanın değerini görmeden önce, tek seferde çok fazla bilgi (kişisel bilgiler, 3+ fotoğraf, 5+ film vb.) talep edilmesi.",
+    "etki": "Yeni kullanıcılar için yüksek sürtünme (friction) ve kayıt işlemini tamamlama oranlarında ciddi düşüş (high drop-off rate). Kötü bir ilk izlenim yaratır.",
+    "çözüm": {
+      "kısa_vadeli": "Adım sayısını 3'e düşürün: 1. Hesap (email/şifre), 2. Temel Profil (ad, 1 fotoğraf), 3. Film zevki (3 film). Diğer bilgileri isteğe bağlı hale getirin.",
+      "kalıcı": "Kaydı tek adıma indirin (sadece email/şifre/ad). Diğer tüm bilgileri, kullanıcı uygulamaya girdikten sonra tamamlayabileceği bir 'aşamalı onboarding' (progressive onboarding) akışına taşıyın."
+    },
+    "örnek_kod": null,
+    "test_senaryosu": [
+      "Yeni bir kullanıcının 60 saniyeden daha kısa bir sürede kayıt olup uygulamanın ana ekranını görebildiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "UX-002",
+    "kategori": "UI/UX",
+    "dosyalar": ["src/screens/RegisterScreen.tsx"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Kayıt Sonrası Kafa Karıştırıcı Akış",
+    "root_cause": "Kullanıcı kaydı tamamladıktan sonra, bir doğrulama e-postası gönderilir ve kullanıcı uygulamadan otomatik olarak çıkış yaptırılır. Bu, kopuk ve beklenmedik bir deneyimdir.",
+    "etki": "Kullanıcı, başarılı bir adımdan sonra kendini tekrar sürecin en başında (giriş ekranı) bulur. Bu, hayal kırıklığı yaratır ve kullanıcının geri dönmemesine neden olabilir.",
+    "çözüm": {
+      "kısa_vadeli": "Kullanıcıyı çıkış yaptırmak yerine, 'E-postanızı doğrulayın' mesajı içeren bir modal veya bilgilendirme ekranına yönlendirin.",
+      "kalıcı": "Kullanıcıyı doğrudan uygulamanın ana ekranına yönlendirin. Ekranın üst kısmında kalıcı bir banner ile 'Hesabınızı doğrulamak için e-postanızı kontrol edin' uyarısı gösterin. Doğrulama yapılana kadar bazı özellikler (örn. mesajlaşma) kısıtlanabilir."
+    },
+    "örnek_kod": null,
+    "test_senaryosu": [
+      "Kayıt olduktan sonra kullanıcının doğrudan ana ekrana yönlendirildiğini ve bir doğrulama uyarısı gördüğünü doğrulayın."
+    ]
+  },
+  {
+    "id": "UX-003",
+    "kategori": "UI/UX",
+    "dosyalar": ["src/screens/WelcomeScreen.tsx", "src/screens/LoginScreen.tsx"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Sosyal Giriş (Social Login) Seçeneklerinin Eksikliği",
+    "root_cause": "Uygulama, sadece e-posta ile kayıt ve giriş seçeneği sunuyor. Google, Apple gibi yaygın ve daha kolay kullanılan sosyal giriş yöntemleri mevcut değil.",
+    "etki": "Kullanıcılar için artan giriş engeli. Birçok kullanıcı, yeni bir hesap ve şifre oluşturmak yerine tek tıkla giriş yapmayı tercih eder ve bu seçenek olmadığında uygulamayı terk edebilir.",
+    "çözüm": {
+      "kısa_vadeli": "En popüler platform olan 'Google ile Giriş Yap' seçeneğini ekleyin.",
+      "kalıcı": "Hem 'Google ile Giriş Yap' hem de iOS kullanıcıları için kritik olan 'Apple ile Giriş Yap' seçeneklerini Firebase Authentication kullanarak entegre edin."
+    },
+    "örnek_kod": null,
+    "test_senaryosu": [
+      "Bir kullanıcının Google veya Apple hesabını kullanarak başarıyla kayıt olup giriş yapabildiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "UX-004",
+    "kategori": "UI/UX",
+    "dosyalar": ["src/screens/MatchScreen.tsx", "src/screens/LikedScreen.tsx"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Yetersiz Yükleme, Boş ve Hata Durumları",
+    "root_cause": "Veri yüklenirken, liste boşken veya bir hata oluştuğunda kullanıcıya sunulan arayüzler yeterince bilgilendirici ve yönlendirici değil.",
+    "etki": "Kullanıcı, bekleme anlarında uygulamanın donduğunu veya bozulduğunu düşünebilir. Boş ekranlar, uygulamanın tamamlanmamış olduğu izlenimini verir.",
+    "çözüm": {
+      "kısa_vadeli": "Mevcut yükleme göstergelerini daha belirgin hale getirin ve boş durumlar için 'Henüz hiç eşleşmen yok' gibi basit metinler ekleyin.",
+      "kalıcı": "Veri yüklenen ekranlar için 'iskelet yükleyiciler' (skeleton loaders) kullanın. Boş durum ekranlarını, kullanıcıyı ne yapması gerektiği konusunda yönlendiren (örn. 'Daha fazla film seçerek eşleşme şansını artır!') ve bir eylem butonu içeren tasarımlarla değiştirin. Hataları standart `Alert` yerine uygulama içi 'toast' bildirimleriyle gösterin."
+    },
+    "örnek_kod": null,
+    "test_senaryosu": [
+      "Yavaş bir ağ bağlantısında, `MatchScreen`'in iskelet yükleyiciler gösterdiğini doğrulayın.",
+      "Hiç beğenisi olmayan bir kullanıcının `LikedScreen`'e girdiğinde, onu ne yapması gerektiği konusunda yönlendiren bir boş durum ekranı gördüğünü test edin."
+    ]
+  }
+]

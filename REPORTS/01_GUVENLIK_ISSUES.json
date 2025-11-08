@@ -1,0 +1,90 @@
+[
+  {
+    "id": "SEC-001",
+    "kategori": "Güvenlik",
+    "dosyalar": ["firestore.rules"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "tekrar_üretim": [
+      "Herhangi bir HTTP istemcisi kullanarak Firestore veritabanı endpoint'ine yetkisiz bir okuma veya yazma isteği gönderin."
+    ],
+    "beklenen": "İsteğin 'PERMISSION_DENIED' hatası ile reddedilmesi.",
+    "gerçek": "İstek başarıyla tamamlanır ve veri okunur/yazılır.",
+    "root_cause": "Firestore güvenlik kuralları, tüm veritabanına herkese açık erişim izni verecek şekilde yapılandırılmıştır (`allow read, write: if true;`).",
+    "çözüm": {
+      "kısa_vadeli": "Tüm erişimi varsayılan olarak reddetmek için kuralları `rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if false; } } }` olarak güncelleyin.",
+      "kalıcı": "Kullanıcıların yalnızca kendi verilerini değiştirebildiği, rol tabanlı, ayrıntılı güvenlik kuralları uygulayın."
+    },
+    "örnek_kod": "allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;",
+    "test_senaryosu": [
+      "Yetkisiz bir kullanıcının veri okuma girişiminin başarısız olduğunu doğrulayın.",
+      "Bir kullanıcının başka bir kullanıcının özel verilerini okuyamadığını doğrulayın."
+    ]
+  },
+  {
+    "id": "SEC-002",
+    "kategori": "Güvenlik",
+    "dosyalar": ["src/utils/SecurityManager.ts"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "tekrar_üretim": [
+      "Bir kullanıcı hesabı için 50'den fazla kez yanlış şifre ile giriş yapmayı deneyin."
+    ],
+    "beklenen": "Hesabın 5-10 denemeden sonra en az 15 dakika süreyle kilitlenmesi.",
+    "gerçek": "Hesap 50 denemeye kadar kilitlenmez ve kilitlenme süresi sadece 30 saniyedir.",
+    "root_cause": "`maxLoginAttempts` (50) ve `lockoutDuration` (30 saniye) değerlerinin son derece güvensiz seviyelerde yapılandırılması.",
+    "çözüm": {
+      "kısa_vadeli": "`maxLoginAttempts` değerini 5'e ve `lockoutDuration` değerini 900000'e (15 dakika) düşürün.",
+      "kalıcı": "Bu ayarları, production ortamı için güvenli varsayılanlar içeren merkezi bir yapılandırma dosyasından yönetin."
+    },
+    "örnek_kod": "this.config = { maxLoginAttempts: 5, lockoutDuration: 15 * 60 * 1000, ... };",
+    "test_senaryosu": [
+      "5 hatalı giriş denemesinden sonra hesabın kilitlendiğini doğrulayın.",
+      "Kilitli bir hesabın 15 dakika boyunca giriş yapamadığını test edin."
+    ]
+  },
+  {
+    "id": "SEC-003",
+    "kategori": "Güvenlik",
+    "dosyalar": ["src/utils/SecurityManager.ts"],
+    "severity": "Critical",
+    "öncelik": "P0",
+    "tekrar_üretim": [
+      "Kullanıcı profili alanlarından birine `<img src=x onerror=alert('XSS')>` gibi bir payload gönderin.",
+      "Profil görüntülendiğinde JavaScript uyarısının tetiklenip tetiklenmediğini kontrol edin."
+    ],
+    "beklenen": "Girdinin temizlenmesi ve zararlı kodun çalıştırılmaması.",
+    "gerçek": "Basit blacklist tabanlı sanitizasyon atlatılabilir ve XSS saldırısı başarılı olabilir.",
+    "root_cause": "Güvenli olmayan, özel `sanitizeInput` fonksiyonu, XSS saldırılarına karşı yetersiz olan bir blacklist yaklaşımı kullanmaktadır.",
+    "çözüm": {
+      "kısa_vadeli": "Girdileri encode ederek ve tehlikeli karakterleri kaldırarak `sanitizeInput` fonksiyonunu iyileştirin.",
+      "kalıcı": "`DOMPurify` gibi kanıtlanmış bir sanitizasyon kütüphanesi kullanarak tüm kullanıcı girdilerini sunucuya göndermeden önce temizleyin."
+    },
+    "örnek_kod": "import DOMPurify from 'dompurify';\nconst sanitized = DOMPurify.sanitize(dirty);",
+    "test_senaryosu": [
+      "Çeşitli XSS payload'larının (script etiketleri, event handler'lar) başarıyla temizlendiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "SEC-004",
+    "kategori": "Güvenlik",
+    "dosyalar": ["src/services/ApiService.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "tekrar_üretim": [
+      "Proje dosyaları içinde 'API_KEY' dizesini aratın."
+    ],
+    "beklenen": "Hiçbir API anahtarının veya placeholder'ının kod içinde bulunmaması.",
+    "gerçek": "TMDB API anahtarı için bir placeholder kod içinde mevcuttur.",
+    "root_cause": "Hassas bilgilerin ortam değişkenleri yerine doğrudan kod içinde yönetilmesi eğilimi.",
+    "çözüm": {
+      "kısa_vadeli": "Tüm API anahtarlarını `.env` dosyasına taşıyın ve `.gitignore` dosyasına `.env`'nin eklendiğinden emin olun.",
+      "kalıcı": "`react-native-config` gibi bir kütüphane kullanarak yapılandırma ve sırları yönetin ve EAS Build secrets gibi güvenli sır yönetim araçlarını kullanın."
+    },
+    "örnek_kod": "const TMDB_API_KEY = process.env.TMDB_API_KEY;",
+    "test_senaryosu": [
+      "Kod tabanında hiçbir API anahtarının hardcoded olmadığını doğrulayın.",
+      "Uygulamanın ortam değişkenlerinden yüklenen anahtarla çalıştığını test edin."
+    ]
+  }
+]

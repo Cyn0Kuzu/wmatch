@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- DEFAULT: DENY ALL ---
+    // Güvenliğin temel prensibi: Varsayılan olarak her şeyi reddet.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- USERS ---
+    // Kullanıcılar kendi profil verilerini okuyabilir ve güncelleyebilir.
+    // Diğer kullanıcılar sadece belirli (public) alanları okuyabilir.
+    match /users/{userId} {
+      allow read: if request.auth != null; // Oturum açan herkes temel profili okuyabilir.
+      allow write: if request.auth != null && request.auth.uid == userId; // Sadece kullanıcı kendi profilini güncelleyebilir.
+
+      // Kullanıcıların hassas bilgilerini (örneğin ayarlar) koru.
+      match /private/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // --- LIKES ---
+    // Kullanıcılar sadece kendi "beğeni" kayıtlarını oluşturabilir ve silebilir.
+    match /likes/{likeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update: if false; // Beğeniler güncellenmemeli.
+    }
+
+    // --- MATCHES ---
+    // Eşleşme verileri, sadece eşleşen iki kullanıcı tarafından okunabilir.
+    // Eşleşmeler sunucu tarafından (Firebase Functions) oluşturulmalıdır, bu nedenle client'tan doğrudan yazma izni verilmemelidir.
+    match /matches/{matchId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.users;
+      allow write: if false; // Client'tan yazmayı engelle, sadece sunucu yazabilsin.
+    }
+
+    // --- MESSAGES ---
+    // Mesajlar, sadece eşleşen (ve mesajlaşmanın ait olduğu) iki kullanıcı tarafından okunabilir ve yazılabilir.
+    match /matches/{matchId}/messages/{messageId} {
+      allow read, create: if request.auth != null && get(/databases/$(database)/documents/matches/$(matchId)).data.users.hasAny([request.auth.uid]);
+      allow update, delete: if request.auth != null && resource.data.senderId == request.auth.uid;
+    }
+
+    // --- SWIPES ---
+    // Kullanıcılar sadece kendi "swipe" kayıtlarını oluşturabilir. Okuma ve güncelleme gereksiz.
+    match /swipes/{swipeId} {
+      allow read, update, delete: if false;
+      allow create: if request.auth != null && request.resource.data.swiperId == request.auth.uid;
+    }
+
+  }
+}

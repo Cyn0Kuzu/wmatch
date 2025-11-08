@@ -1,0 +1,56 @@
+[
+  {
+    "id": "EH-001",
+    "kategori": "Error Handling",
+    "dosyalar": ["src/utils/ErrorHandler.ts"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Hataların Sadece Loglanması, Kullanıcıya Geri Bildirim Verilmemesi",
+    "root_cause": "`ErrorHandler.ts`, yakalanan hataları merkezi olarak loglar ancak kullanıcıya bir hata mesajı (toast, modal vb.) göstermek için bir mekanizma içermez.",
+    "etki": "Ağ hatası gibi bir sorun olduğunda, kullanıcı ne olduğunu anlamadan sonsuz bir yükleme ekranıyla karşılaşabilir. Bu, uygulamanın donduğu veya bozulduğu algısı yaratır.",
+    "çözüm": {
+      "kısa_vadeli": "`ErrorHandler.handleError` fonksiyonuna, loglamaya ek olarak, basit bir `Alert.alert` ile hata mesajını gösterme mantığı ekleyin.",
+      "kalıcı": "`ErrorHandler`'ı, `react-native-toast-message` gibi bir kütüphane ile entegre edin. `handleError` fonksiyonu, hatanın ciddiyetine göre kullanıcıya uygun bir 'toast' bildirimi göstermelidir. Kullanıcı dostu mesajlar kullanılmalıdır."
+    },
+    "örnek_kod": "// ErrorHandler.ts içinde\nimport { showToast } from '../components/ui/ToastComponents';\n\npublic handleError(error: AppError): void {\n  logger.error(...);\n  showToast(error.message, 'error');\n}",
+    "test_senaryosu": [
+      "Bir API isteğini manuel olarak başarısızlığa uğratarak (örneğin, interneti kapatarak), kullanıcıya bir 'toast' bildirimi gösterildiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "EH-002",
+    "kategori": "Error Handling",
+    "dosyalar": ["App.tsx"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "`ErrorBoundary`'nin Sadece En Üst Seviyede (Top-Level) Kullanılması",
+    "root_cause": "Uygulamanın tamamı tek bir `ErrorBoundary` ile sarmalanmış. Bu, küçük bir UI hatasının bile tüm uygulamayı çökertmesine ve hata ekranını göstermesine neden olur.",
+    "etki": "Uygulamanın dayanıklılığı (resilience) düşüktür. Küçük ve izole edilebilir bir hatadan (örneğin, bir kartın render olamaması) kurtulma şansı yoktur, bu da kötü bir kullanıcı deneyimine yol açar.",
+    "çözüm": {
+      "kısa_vadeli": "Her bir ana ekranı (`HomeScreen`, `MatchScreen` vb.) kendi `ErrorBoundary`'si ile sarmalayın.",
+      "kalıcı": "Stratejik olarak uygulamanın daha küçük ve bağımsız parçalarını da `ErrorBoundary` ile sarmalayın. Örneğin, `FlatList` içindeki her bir `renderItem`'ı veya birbirinden bağımsız dashboard widget'larını kendi `ErrorBoundary`'leri ile koruyun. Her `ErrorBoundary` için bağlama uygun bir 'fallback' component sağlayın."
+    },
+    "örnek_kod": "// HomeScreen.tsx\n<ErrorBoundary fallback={<ScreenErrorFallback />}>\n  <MatchList />\n</ErrorBoundary>",
+    "test_senaryosu": [
+      "Bir `MovieCard` component'inde manuel olarak bir render hatası (örn. `throw new Error('Test Error')`) oluşturun. Sadece o kartın yerine bir hata mesajı geldiğini, ekranın geri kalanının ise çalışmaya devam ettiğini doğrulayın."
+    ]
+  },
+  {
+    "id": "EH-003",
+    "kategori": "Error Handling",
+    "dosyalar": ["src/services/TMDBService.ts", "src/services/FirestoreService.ts"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Ağ Hatalarına Karşı Otomatik Yeniden Deneme (Retry) Mekanizmasının Eksikliği",
+    "root_cause": "Veri çekme işlemleri (`useEffect` içinde yapılan `fetch` çağrıları), geçici ağ hatalarını otomatik olarak yeniden deneme mantığına sahip değil. Bu mantık sadece `AuthService.signIn` içinde manuel olarak implemente edilmiş.",
+    "etki": "Anlık ağ sorunları, veri yükleme işlemlerinin kalıcı olarak başarısız olmasına neden olur ve kullanıcının işlemi manuel olarak (örneğin, ekranı yenileyerek) tekrar başlatmasını gerektirir.",
+    "çözüm": {
+      "kısa_vadeli": "Mevcut `useEffect` veri çekme mantıklarına basit bir `retry` sayacı ve `setTimeout` ile manuel yeniden deneme mekanizması ekleyin.",
+      "kalıcı": "Projede zaten kurulu olan `@tanstack/react-query` (React Query) kütüphanesini benimseyin. Tüm veri çekme işlemlerini `useEffect`'ten `useQuery` hook'una taşıyın. React Query, varsayılan olarak ağ hatalarını otomatik olarak yeniden dener ve state yönetimi, caching gibi birçok ek fayda sağlar."
+    },
+    "örnek_kod": "// Component içinde\nimport { useQuery } from '@tanstack/react-query';\n\nconst { data, isLoading } = useQuery({\n  queryKey: ['movies'],\n  queryFn: () => tmdbService.getTrendingMovies(),\n  // React Query varsayılan olarak 3 kez dener\n});",
+    "test_senaryosu": [
+      "Uygulama çalışırken internet bağlantısını kısa bir süreliğine kesip geri açın. Veri yükleme işleminin, manuel müdahale olmadan başarıyla tamamlandığını doğrulayın."
+    ]
+  }
+]

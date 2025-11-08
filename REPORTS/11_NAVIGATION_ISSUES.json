@@ -1,0 +1,56 @@
+[
+  {
+    "id": "NAV-001",
+    "kategori": "Navigation",
+    "dosyalar": ["src/navigation/AppNavigator.tsx"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Kimlik Doğrulama Durumuna Göre Navigasyon Yığınının Değiştirilmesi",
+    "root_cause": "`isAuthenticated` durumuna göre iki farklı navigasyon yığınının (`MainTabs` vs `AuthStack`) koşullu olarak render edilmesi. Bu, `react-navigation`'da eski bir kalıptır.",
+    "etki": "Giriş/çıkış sırasında ekranda 'flicker' (yanıp sönme) oluşması, component state'lerinin kaybolması ve akıcı olmayan bir kullanıcı deneyimi.",
+    "çözüm": {
+      "kısa_vadeli": "Koşullu render'ı `Stack.Navigator`'ın içine taşıyarak sadece `Stack.Screen`'leri değiştirin, tüm navigatörü değil.",
+      "kalıcı": "Tüm ekranları tek bir `StackNavigator` içinde tanımlayın. `isAuthenticated` durumuna göre, `Stack.Group` kullanarak hangi ekran grubunun (Auth veya Main) render edileceğini belirleyin. Bu, `react-navigation`'ın state'i korumasını ve geçişleri akıcı hale getirmesini sağlar."
+    },
+    "örnek_kod": "<Stack.Navigator>\n  {isAuthenticated ? (\n    <Stack.Screen name=\"Main\" component={MainTabs} />\n  ) : (\n    <Stack.Screen name=\"Auth\" component={AuthStack} />\n  )}\n</Stack.Navigator>",
+    "test_senaryosu": [
+      "Giriş ve çıkış yaparken ekranda herhangi bir yanıp sönme veya beyaz ekran olmadığını görsel olarak doğrulayın."
+    ]
+  },
+  {
+    "id": "NAV-002",
+    "kategori": "Navigation",
+    "dosyalar": ["src/navigation/AppNavigator.tsx"],
+    "severity": "High",
+    "öncelik": "P1",
+    "sorun": "Karmaşık ve Güvenilir Olmayan Kimlik Doğrulama Mantığı",
+    "root_cause": "Kimlik doğrulama durumu (`isAuthenticated`), `AppNavigator` component'inin kendi içindeki `useEffect` ve `useState` ile yönetiliyor. Bu mantık, `setTimeout` gibi yapay gecikmeler içeriyor ve race condition'lara açıktır.",
+    "etki": "Kimlik doğrulama durumunun tutarsız olmasına, uygulamanın yanlış ekranı göstermesine ve hata ayıklamanın zorlaşmasına neden olabilir.",
+    "çözüm": {
+      "kısa_vadeli": "`useEffect` içindeki mantığı basitleştirin ve gereksiz `setTimeout`'ları kaldırın.",
+      "kalıcı": "Kimlik doğrulama mantığını `AppNavigator`'dan tamamen çıkarın. `onAuthStateChanged` dinleyicisini uygulamanın kökünde (örn. `CoreEngine`) bir kez kurun ve sonucu doğrudan merkezi Zustand store'una (`userSlice`) yazın. `AppNavigator`, bu global state'i sadece okumalıdır."
+    },
+    "örnek_kod": "// AppNavigator içinde\nconst isAuthenticated = useAppStore(state => state.isAuthenticated);\n// useEffect veya useState olmadan, sadece bu değeri kullanın.",
+    "test_senaryosu": [
+      "Uygulama açılırken veya kullanıcı durumu değiştiğinde, kimlik doğrulama durumunun her zaman doğru ve tutarlı olduğunu doğrulayın."
+    ]
+  },
+  {
+    "id": "NAV-003",
+    "kategori": "Navigation",
+    "dosyalar": ["src/navigation/AppNavigator.tsx"],
+    "severity": "Medium",
+    "öncelik": "P2",
+    "sorun": "Tip Güvenliğinden (Type Safety) Yoksun Navigasyon",
+    "root_cause": "`navigation.navigate('ScreenName')` gibi çağrılarda ekran adları ve parametreler için string literalleri kullanılıyor. `react-navigation` için tip tanımlamaları yapılmamış.",
+    "etki": "Ekran adlarının yanlış yazılması veya değiştirilmesi, sadece çalışma zamanında (runtime) fark edilen ve uygulamanın çökmesine neden olan hatalara yol açar. Parametre tipleri kontrol edilmez.",
+    "çözüm": {
+      "kısa_vadeli": "Ekran adlarını bir `enum` veya `const` nesnesi içinde merkezi olarak tanımlayın.",
+      "kalıcı": "`react-navigation` dökümantasyonunda açıklandığı gibi, her navigatör için bir `ParamList` tipi oluşturun. Bu tipleri `createStackNavigator<ParamList>()` ve `useNavigation<NavigationProp<ParamList>>()` gibi generic'ler aracılığıyla kullanarak tam tip güvenliği sağlayın."
+    },
+    "örnek_kod": "export type RootStackParamList = {\n  Welcome: undefined;\n  Profile: { userId: string };\n};\n\nconst Stack = createStackNavigator<RootStackParamList>();",
+    "test_senaryosu": [
+      "Mevcut olmayan bir ekrana gitmeye çalışan bir `navigation.navigate` çağrısının, VS Code'da veya derleme sırasında bir TypeScript hatası verdiğini doğrulayın."
+    ]
+  }
+]

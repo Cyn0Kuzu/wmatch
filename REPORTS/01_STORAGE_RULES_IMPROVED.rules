@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // --- DEFAULT: DENY ALL ---
+    // Varsayılan olarak tüm erişimi reddet.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // --- USERS ---
+    // Kullanıcılar sadece kendi kişisel dosyalarını (profil, kapak, vb.) okuyabilir ve yazabilir.
+    // Bu, bir kullanıcının diğerinin dosyalarını değiştirmesini engeller.
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null; // Diğer kullanıcıların profillerini görmek için okuma izni gerekebilir.
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // --- MOVIES & SYSTEM (Shared Resources) ---
+    // Genel kaynakları (film afişleri, sistem ikonları) herkes okuyabilir.
+    // YAZMA İZNİ SADECE ADMIN YETKİSİNE SAHİP KULLANICILARA VERİLMELİDİR.
+    // Bu, Firebase Auth Custom Claims kullanılarak yönetilebilir. `request.auth.token.admin` alanı,
+    // kullanıcının admin olup olmadığını kontrol eder.
+    match /movies/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    match /system/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}
