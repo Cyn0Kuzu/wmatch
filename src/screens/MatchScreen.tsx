@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { Timestamp } from 'firebase/firestore';
 import { MovieDetailModal } from '../components/ui/MovieDetailModal';
 import { Ionicons } from '@expo/vector-icons';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import { logger } from '../utils/Logger';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HORIZONTAL_CARD_WIDTH = 120;
@@ -294,7 +295,7 @@ export const MatchScreen: React.FC = () => {
                         <Text style={styles.filterLabel}>Yaş Aralığı: {ageRangeFilter[0]} - {ageRangeFilter[1]}</Text>
                         <MultiSlider
                             values={[ageRangeFilter[0], ageRangeFilter[1]]}
-                            onValuesChange={setAgeRangeFilter}
+                            onValuesChange={(values) => setAgeRangeFilter([values[0], values[1]])}
                             min={18}
                             max={55}
                             step={1}

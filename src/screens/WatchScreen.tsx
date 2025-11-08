@@ -23,6 +23,7 @@ import { authService } from '../services/AuthService';
 import { userDataManager } from '../services/UserDataManager';
 import { eventService } from '../services/EventService';
 import { MovieDetailModal } from '../components/ui/MovieDetailModal';
+import { logger } from '../utils/Logger';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.35;
@@ -114,6 +115,7 @@ export const WatchScreen: React.FC = () => {
       const allWatching = await realTimeWatchingService.getAllCurrentlyWatching();
       setAllCurrentlyWatching(allWatching);
       
+      console.log('Currently watching loaded:', {
         total: allWatching.length,
         items: allWatching.map(item => ({
           id: item.movieId,
@@ -276,7 +278,7 @@ export const WatchScreen: React.FC = () => {
     };
   }, [searchQuery, searchCategory, searchExpanded]);
 
-  const renderMovieCard = (item: any, index: number) => {
+  const renderMovieCard = (item: any, index: number, section?: string) => {
     const releaseDate = item.release_date || item.first_air_date || '';
     const year = releaseDate ? new Date(releaseDate).getFullYear() : (item.year || 'N/A');
     const rating = item.vote_average || item.rating;
@@ -286,7 +288,7 @@ export const WatchScreen: React.FC = () => {
     
     return (
       <TouchableOpacity
-        key={`${section}-${item.id}-${index}`}
+        key={`${section || 'movie'}-${item.id}-${index}`}
         style={styles.movieCard}
         onPress={() => {
           setSelectedMovie(item);

@@ -57,6 +57,7 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
       // Always fetch from TMDB for complete data
       const mediaType = movie.media_type || movie.type || (movie.first_air_date ? 'tv' : 'movie');
       
+      console.log('Loading movie details:', {
         id: movie.id,
         mediaType,
         title: movie.title || movie.name
@@ -71,6 +72,7 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
       }
 
       if (details) {
+        console.log('Movie details loaded:', {
           title: details.title || details.name,
           year: details.release_date || details.first_air_date,
           rating: details.vote_average,
@@ -103,8 +105,8 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
       const movieId = movie.id;
 
       const [favorites, watched, currentlyWatching]: [any[], any[], any] = await Promise.all([
-        userDataManager.getUserFavorites(currentUser.uid),
-        userDataManager.getUserWatchedContent(currentUser.uid),
+        userDataManager.getFavorites(currentUser.uid),
+        userDataManager.getWatchedContent(currentUser.uid),
         userDataManager.getCurrentlyWatching(currentUser.uid),
       ]);
 
@@ -313,6 +315,7 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     : [];
 
   // Debug log
+  console.log('MovieDetailModal render:', {
     title,
     year,
     rating,

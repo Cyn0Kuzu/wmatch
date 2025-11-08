@@ -168,6 +168,98 @@ export class UserDataManager {
   public async getUserCurrentlyWatchingWithLanguagePriority(userId: string): Promise<any[]> {
     return this.getCurrentlyWatching(userId);
   }
+
+  // Alias methods for backward compatibility
+  public async getUserFavorites(userId: string): Promise<UserMovieData[]> {
+    return this.getFavorites(userId);
+  }
+
+  public async getUserWatchedContent(userId: string): Promise<UserMovieData[]> {
+    return this.getWatchedContent(userId);
+  }
+
+  public async markAsWatched(userId: string, movieData: UserMovieData): Promise<void> {
+    try {
+      const userDoc = await this.getUserProfile(userId);
+      if (!userDoc) throw new Error('User not found');
+
+      const watchedContent = (userDoc as any).watchedContent || [];
+      const watchedData = cleanUndefinedValues({
+        ...movieData,
+        watchedAt: new Date(),
+      });
+
+      const existingIndex = watchedContent.findIndex((item: any) => item.id === movieData.id);
+      if (existingIndex >= 0) {
+        watchedContent[existingIndex] = { ...watchedContent[existingIndex], ...watchedData };
+      } else {
+        watchedContent.push(watchedData);
+      }
+
+      await this.updateUserProfile(userId, { watchedContent } as any);
+    } catch (error) {
+      logger.error('Failed to mark as watched', 'UserDataManager', error);
+      throw error;
+    }
+  }
+
+  public async removeFromWatched(userId: string, movieId: number): Promise<void> {
+    try {
+      const userDoc = await this.getUserProfile(userId);
+      if (!userDoc) throw new Error('User not found');
+
+      const watchedContent = ((userDoc as any).watchedContent || []).filter((item: any) => item.id !== movieId);
+      await this.updateUserProfile(userId, { watchedContent } as any);
+    } catch (error) {
+      logger.error('Failed to remove from watched', 'UserDataManager', error);
+      throw error;
+    }
+  }
+
+  public async addToFavorites(userId: string, movieData: UserMovieData): Promise<void> {
+    try {
+      const userDoc = await this.getUserProfile(userId);
+      if (!userDoc) throw new Error('User not found');
+
+      const favorites = (userDoc as any).favorites || [];
+      const favoriteData = cleanUndefinedValues(movieData);
+
+      const existingIndex = favorites.findIndex((item: any) => item.id === movieData.id);
+      if (existingIndex >= 0) {
+        favorites[existingIndex] = { ...favorites[existingIndex], ...favoriteData };
+      } else {
+        favorites.push(favoriteData);
+      }
+
+      await this.updateUserProfile(userId, { favorites } as any);
+    } catch (error) {
+      logger.error('Failed to add to favorites', 'UserDataManager', error);
+      throw error;
+    }
+  }
+
+  public async removeFromFavorites(userId: string, movieId: number): Promise<void> {
+    try {
+      const userDoc = await this.getUserProfile(userId);
+      if (!userDoc) throw new Error('User not found');
+
+      const favorites = ((userDoc as any).favorites || []).filter((item: any) => item.id !== movieId);
+      await this.updateUserProfile(userId, { favorites } as any);
+    } catch (error) {
+      logger.error('Failed to remove from favorites', 'UserDataManager', error);
+      throw error;
+    }
+  }
+
+  public async getUserWatchlist(userId: string): Promise<UserMovieData[]> {
+    try {
+      const userDoc = await this.getUserProfile(userId);
+      return (userDoc as any)?.watchlist || [];
+    } catch (error) {
+      logger.error('Failed to get watchlist', 'UserDataManager', error);
+      return [];
+    }
+  }
 }
 
 export const userDataManager = UserDataManager.getInstance();

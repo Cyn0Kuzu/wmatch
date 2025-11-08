@@ -42,7 +42,7 @@ export class MessageService {
       }
 
       const chatId = this.getChatId(senderId, receiverId);
-      const messagesCollection = collection(this.firestoreService.db, 'chats', chatId, 'messages');
+      const messagesCollection = collection(this.firestoreService.getDatabase(), 'chats', chatId, 'messages');
 
       await addDoc(messagesCollection, {
         text,
@@ -64,7 +64,7 @@ export class MessageService {
   // Method to get messages for a chat in real-time
   public getMessages(chatId: string, callback: (messages: Message[]) => void): () => void {
     try {
-      const messagesCollection = collection(this.firestoreService.db, 'chats', chatId, 'messages');
+      const messagesCollection = collection(this.firestoreService.getDatabase(), 'chats', chatId, 'messages');
       const q = query(messagesCollection, orderBy('createdAt', 'asc'));
 
       const unsubscribe = onSnapshot(q, (querySnapshot) => {

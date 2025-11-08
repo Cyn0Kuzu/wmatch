@@ -24,6 +24,7 @@ import { userDataManager } from '../services/UserDataManager';
 import { eventService } from '../services/EventService';
 import { realTimeWatchingService } from '../services/RealTimeWatchingService';
 import { MovieDetailModal } from '../components/ui/MovieDetailModal';
+import { logger } from '../utils/Logger';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 3;
@@ -231,7 +232,7 @@ export const ProfileScreen: React.FC = () => {
 
   const loadFavorites = async (userId: string) => {
     try {
-      const favoritesData = await userDataManager.getUserFavorites(userId);
+      const favoritesData = await userDataManager.getFavorites(userId);
       if (favoritesData && Array.isArray(favoritesData)) {
         setFavorites(favoritesData);
       }
@@ -242,7 +243,7 @@ export const ProfileScreen: React.FC = () => {
 
   const loadWatched = async (userId: string) => {
     try {
-      const watchedData = await userDataManager.getUserWatchedContent(userId);
+      const watchedData = await userDataManager.getWatchedContent(userId);
       if (watchedData && Array.isArray(watchedData)) {
         setWatched(watchedData);
       }

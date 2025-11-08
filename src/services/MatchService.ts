@@ -174,9 +174,7 @@ export class MatchService {
             })
             .filter(id => id !== undefined && id !== null && !isNaN(id));
 
-            watchingIds: userWatchingIds,
-            currentUserIds: currentUserWatchingIds
-          });
+          logger.debug(`Comparing watching IDs: user=${userWatchingIds.length}, current=${currentUserWatchingIds.length}`, 'MatchService');
 
           // Ortak izlenen filmleri bul
           const commonWatching = currentUserWatchingIds.filter((id: any) => 
@@ -254,13 +252,7 @@ export class MatchService {
         }
       }
 
-        totalMatches: matches.length,
-        matchedUsers: matches.map(m => ({ 
-          id: m.id, 
-          name: m.firstName || m.username,
-          score: m.matchScore 
-        }))
-      });
+      logger.info(`Match calculation complete: ${matches.length} matches found`, 'MatchService');
 
       // Rastgele sırala (Tinder mantığı)
       const shuffledMatches = this.shuffleArray(matches);
@@ -564,7 +556,17 @@ export class MatchService {
         ...user,
         matchScore: 0, // or some other logic
         matchReason: 'Sizi beğendi',
-      })) as MatchProfile[];
+        currentlyWatching: [],
+        watchedContent: [],
+        favorites: [],
+        watchlist: [],
+        preferences: {
+          selectedMovies: user.selectedMovies || [],
+          selectedGenres: user.preferences?.favoriteGenres || [],
+          ageRange: [18, 99] as [number, number],
+          maxDistance: 50,
+        },
+      } as unknown as MatchProfile)) as MatchProfile[];
     } catch (error) {
       logger.error('Error getting users who liked me', 'MatchService', error);
       throw error;

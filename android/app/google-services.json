@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "721598695709",
+    "project_id": "mwatch-69a6f",
+    "storage_bucket": "mwatch-69a6f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:721598695709:android:7a2288a02cddce3b5ef9f4",
+        "android_client_info": {
+          "package_name": "com.memode.mwatch"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6Itb-2KueatD4Nh8ODF7GUdUFfoKhEyE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+

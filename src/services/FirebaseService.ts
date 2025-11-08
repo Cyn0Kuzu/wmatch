@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logger } from '../utils/Logger';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCb7O_gdgIZFU-Yo-Iaqr09YG4wxR83lrc",
+  apiKey: "AIzaSyC6Itb-2KueatD4Nh8ODF7GUdUFfoKhEyE",
   authDomain: "mwatch-69a6f.firebaseapp.com",
   projectId: "mwatch-69a6f",
   storageBucket: "mwatch-69a6f.firebasestorage.app",
@@ -57,16 +57,38 @@ export class FirebaseService {
       this.storage = getStorage(this.app);
       logger.info('Firebase Storage initialized', 'FirebaseService');
       
-      // Initialize Auth with simpler approach
+      // Initialize Auth with AsyncStorage persistence for React Native
+      // Note: Firebase v12 may require different persistence setup
+      // For now, we'll use initializeAuth which should work with React Native
       try {
-        this.auth = getAuth(this.app);
-        logger.info('Firebase Auth retrieved successfully', 'FirebaseService');
+        // Check if auth is already initialized
+        try {
+          this.auth = getAuth(this.app);
+          logger.info('Firebase Auth retrieved successfully', 'FirebaseService');
+        } catch (error) {
+          // Auth not initialized yet, try to initialize with persistence
+          // Firebase v12 may handle React Native persistence automatically
+          try {
+            // Try to use initializeAuth - Firebase should detect React Native environment
+            this.auth = initializeAuth(this.app);
+            logger.info('Firebase Auth initialized (React Native persistence should be automatic)', 'FirebaseService');
+          } catch (initError) {
+            // If initializeAuth fails, fall back to getAuth
+            logger.warn('initializeAuth failed, using getAuth', 'FirebaseService', initError);
+            this.auth = getAuth(this.app);
+            logger.warn('Firebase Auth initialized without explicit persistence (warning expected)', 'FirebaseService');
+          }
+        }
       } catch (error) {
-        logger.warn('Failed to get Firebase Auth, trying initializeAuth', 'FirebaseService', error);
-        this.auth = initializeAuth(this.app, {
-          // persistence: getReactNativePersistence(AsyncStorage) // Not available in this Firebase version
-        });
-        logger.info('Firebase Auth initialized with AsyncStorage', 'FirebaseService');
+        logger.error('Failed to initialize Firebase Auth', 'FirebaseService', error);
+        // Final fallback
+        try {
+          this.auth = getAuth(this.app);
+          logger.warn('Firebase Auth initialized without persistence (fallback)', 'FirebaseService');
+        } catch (fallbackError) {
+          logger.error('Failed to initialize Firebase Auth even with fallback', 'FirebaseService', fallbackError);
+          throw fallbackError;
+        }
       }
 
       this.isInitialized = true;

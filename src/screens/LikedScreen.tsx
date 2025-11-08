@@ -19,6 +19,7 @@ import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
 import { matchService } from '../services/MatchService';
 import { Timestamp } from 'firebase/firestore';
+import { logger } from '../utils/Logger';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;

@@ -128,6 +128,10 @@ export class FirestoreService {
     return db;
   }
 
+  public getDatabase() {
+    return this.getDb();
+  }
+
   /**
    * E-posta adresinin benzersiz olup olmadığını kontrol eder
    */
@@ -205,11 +209,6 @@ export class FirestoreService {
    */
   async createUserProfile(userId: string, userData: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     try {
-        email: userData.email,
-        username: userData.username,
-        profilePhotos: userData.profilePhotos?.length || 0
-      });
-      
       await this.ensureInitialized();
       const db = this.getDb();
       if (!db) {

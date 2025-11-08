@@ -18,6 +18,7 @@ import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
 import { messageService, Message } from '../services/MessageService';
 import { Timestamp } from 'firebase/firestore';
+import { logger } from '../utils/Logger';
 
 // Chat Preview Card Component
 const ChatPreviewCard: React.FC<{
@@ -115,23 +116,34 @@ export const MessageScreen: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadMatches();
+    const loadCurrentUser = async () => {
+      const user = await authService.getCurrentUser();
+      if (user) {
+        setCurrentUserId(user.uid);
+      }
+    };
+    loadCurrentUser();
   }, []);
 
   useEffect(() => {
     if (selectedChat) {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) return;
+      const loadMessages = async () => {
+        const currentUser = await authService.getCurrentUser();
+        if (!currentUser) return;
 
-      const chatId = [currentUser.uid, selectedChat.id].sort().join('_');
-      const unsubscribe = messageService.getMessages(chatId, (newMessages) => {
-        setMessages(newMessages);
-      });
+        const chatId = [currentUser.uid, selectedChat.id].sort().join('_');
+        const unsubscribe = messageService.getMessages(chatId, (newMessages) => {
+          setMessages(newMessages);
+        });
 
-      return () => unsubscribe();
+        return () => unsubscribe();
+      };
+      loadMessages();
     }
   }, [selectedChat, authService]);
 
@@ -283,7 +295,7 @@ export const MessageScreen: React.FC = () => {
               <MessageBubble
                 key={message.id}
                 message={message}
-                isOwnMessage={message.senderId === authService.getCurrentUser()?.uid}
+                isOwnMessage={message.senderId === currentUserId}
               />
             ))}
           </ScrollView>
