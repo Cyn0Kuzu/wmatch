@@ -14,8 +14,8 @@ import {
   Modal,
   PanResponder,
   Linking,
+  LayoutChangeEvent,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
 import * as Location from 'expo-location';
 import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
@@ -46,13 +46,8 @@ interface FilterSettings {
 
 const MIN_AGE = 18;
 const MAX_AGE = 65;
-
-const DISTANCE_PRESETS: Array<{ label: string; value: number }> = [
-  { label: '10 km', value: 10 },
-  { label: '25 km', value: 25 },
-  { label: '50 km', value: 50 },
-  { label: '100 km', value: 100 },
-];
+const MIN_DISTANCE_KM = 1;
+const MAX_DISTANCE_KM = 100;
 
 const DEFAULT_FILTER_SETTINGS: FilterSettings = {
   gender: 'any',
@@ -147,6 +142,77 @@ const matchStyles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+interface FilterSliderProps {
+  min: number;
+  max: number;
+  step?: number;
+  value: number;
+  disabled?: boolean;
+  onChange?: (value: number) => void;
+}
+
+const FilterSlider: React.FC<FilterSliderProps> = ({
+  min,
+  max,
+  step = 1,
+  value,
+  disabled = false,
+  onChange,
+}) => {
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  const clampValue = (val: number) => {
+    const stepped = Math.round(val / step) * step;
+    return Math.min(max, Math.max(min, stepped));
+  };
+
+  const handleUpdate = useCallback(
+    (locationX: number) => {
+      if (!trackWidth || disabled) return;
+      const ratio = Math.min(Math.max(locationX / trackWidth, 0), 1);
+      const rawValue = min + ratio * (max - min);
+      const nextValue = clampValue(rawValue);
+      if (nextValue !== value) {
+        onChange?.(nextValue);
+      }
+    },
+    [trackWidth, disabled, min, max, value, onChange, step]
+  );
+
+  const percent = (value - min) / (max - min);
+  const thumbOffset = trackWidth
+    ? Math.min(trackWidth - 20, Math.max(0, percent * trackWidth - 10))
+    : 0;
+
+  const sliderWidthStyle = {
+    width: `${Math.min(100, Math.max(0, percent * 100))}%`,
+  };
+
+  return (
+    <View
+      style={[
+        styles.sliderTrack,
+        disabled && styles.sliderTrackDisabled,
+      ]}
+      onLayout={(evt: LayoutChangeEvent) => setTrackWidth(evt.nativeEvent.layout.width)}
+      onStartShouldSetResponder={() => !disabled}
+      onMoveShouldSetResponder={() => !disabled}
+      onResponderGrant={(evt) => handleUpdate(evt.nativeEvent.locationX)}
+      onResponderMove={(evt) => handleUpdate(evt.nativeEvent.locationX)}
+    >
+      <View style={[styles.sliderFill, sliderWidthStyle]} />
+      <View
+        style={[
+          styles.sliderThumb,
+          trackWidth
+            ? { left: thumbOffset }
+            : { left: `${percent * 100}%` },
+        ]}
+      />
+    </View>
+  );
+};
 
 // Match Effect Modal Component
 const MatchEffectModal: React.FC<{
@@ -1328,6 +1394,22 @@ export const MatchScreen: React.FC = () => {
   const requestLocationPermission = useCallback(async (showAlertOnDeny = false) => {
     try {
       setRequestingLocation(true);
+      if (
+        !Location ||
+        typeof Location.requestForegroundPermissionsAsync !== 'function' ||
+        typeof Location.getCurrentPositionAsync !== 'function'
+      ) {
+        console.warn('expo-location modülü henüz hazır değil');
+        setLocationPermissionStatus('denied');
+        setLocationError('Konum modülü yüklenemedi (expo-location eksik)');
+        if (showAlertOnDeny) {
+          Alert.alert(
+            'Konum Modülü Eksik',
+            'Konum almak için expo-location modülünün projede yüklü olması gerekir. Lütfen uygulamayı yeniden başlatıp tekrar deneyin.'
+          );
+        }
+        return false;
+      }
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocationPermissionStatus('denied');
@@ -1589,7 +1671,11 @@ export const MatchScreen: React.FC = () => {
   };
 
   const selectDistanceFilter = (value: number) => {
-    setFilterDraft(prev => ({ ...prev, maxDistance: value }));
+    const sanitized = Math.min(
+      MAX_DISTANCE_KM,
+      Math.max(MIN_DISTANCE_KM, Math.round(value))
+    );
+    setFilterDraft(prev => ({ ...prev, maxDistance: sanitized }));
   };
 
   const handlePass = async () => {
@@ -1974,7 +2060,7 @@ export const MatchScreen: React.FC = () => {
     filterSettings.ageRange[1] >= MAX_AGE
       ? `${filterSettings.ageRange[0]}+`
       : `${filterSettings.ageRange[0]}-${filterSettings.ageRange[1]}`;
-  const distanceLabel = `${filterSettings.maxDistance} km`;
+  const distanceLabel = `≤ ${filterSettings.maxDistance} km`;
   const locationCardValue =
     locationPermissionStatus === 'granted'
       ? currentCoords
@@ -2146,17 +2232,12 @@ export const MatchScreen: React.FC = () => {
                   {MIN_AGE} - {filterDraft.ageRange[1]}
                 </Text>
               </View>
-              <Slider
-                style={styles.ageSlider}
-                minimumValue={MIN_AGE + 2}
-                maximumValue={MAX_AGE}
-                step={1}
+              <FilterSlider
+                min={MIN_AGE + 2}
+                max={MAX_AGE}
                 value={filterDraft.ageRange[1]}
-                minimumTrackTintColor="#E50914"
-                maximumTrackTintColor="#2A2A2A"
-                thumbTintColor="#E50914"
                 disabled={!isPremiumUser}
-                onValueChange={(value: number) => selectAgeRangeFilter([MIN_AGE, Math.round(value)])}
+                onChange={(val) => selectAgeRangeFilter([MIN_AGE, val])}
               />
               {!isPremiumUser ? (
                 <Text style={styles.ageSliderHelperText}>
@@ -2170,35 +2251,24 @@ export const MatchScreen: React.FC = () => {
             </View>
 
             <View style={styles.filterModalSection}>
-              <Text style={styles.filterModalLabel}>Mesafe</Text>
-              <View style={styles.filterOptionRow}>
-                {DISTANCE_PRESETS.map(({ label, value }) => {
-                  const isActive = filterDraft.maxDistance === value;
-                  return (
-                    <TouchableOpacity
-                      key={`distance-${label}`}
-                      style={[
-                        styles.filterOptionButton,
-                        isActive && styles.filterOptionButtonActive,
-                        !isPremiumUser && styles.filterOptionButtonDisabled,
-                      ]}
-                      disabled={!isPremiumUser}
-                      activeOpacity={isPremiumUser ? 0.8 : 1}
-                      onPress={() => selectDistanceFilter(value)}
-                    >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          isActive && styles.filterOptionTextActive,
-                          !isPremiumUser && styles.filterOptionTextDisabled,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View style={styles.distanceHeader}>
+                <Text style={styles.filterModalLabel}>Mesafe</Text>
+                <Text style={styles.distanceValue}>
+                  {`≤ ${filterDraft.maxDistance} km`}
+                </Text>
               </View>
+              <FilterSlider
+                min={MIN_DISTANCE_KM}
+                max={MAX_DISTANCE_KM}
+                value={filterDraft.maxDistance}
+                disabled={!isPremiumUser}
+                onChange={(val) => selectDistanceFilter(val)}
+              />
+              <Text style={styles.distanceHelperText}>
+                {isPremiumUser
+                  ? 'Kaydırıcıyı hareket ettirerek çevrenizdeki arama yarıçapını belirleyin.'
+                  : 'Mesafe aralığını değiştirmek için Premium gerekir. Şu anda varsayılan değer gösteriliyor.'}
+              </Text>
             </View>
 
             <View style={styles.filterModalSection}>
@@ -2321,75 +2391,76 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    paddingTop: 12,
+    paddingTop: 10,
   },
   filterBarContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    marginBottom: 6,
   },
   filterBarScrollContent: {
-    paddingRight: 20,
+    paddingRight: 12,
     flexDirection: 'row',
   },
   filterCard: {
-    width: 150,
+    width: 120,
     backgroundColor: '#111111',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 14,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#1F1F1F',
-    marginRight: 12,
+    marginRight: 10,
   },
   filterCardLocked: {
     opacity: 0.9,
   },
   filterCardIconCircle: {
-    width: 30,
-    height: 30,
+    width: 26,
+    height: 26,
     borderRadius: 10,
     backgroundColor: 'rgba(229, 9, 20, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   filterCardLabel: {
     color: '#9A9A9A',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   filterCardValue: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    marginTop: 6,
+    marginTop: 4,
   },
   filterBarHintButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    marginTop: 10,
-    gap: 8,
+    marginTop: 8,
+    gap: 6,
   },
   filterBarHintText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   filterBarBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginLeft: 10,
+    gap: 3,
+    marginLeft: 8,
     backgroundColor: 'rgba(229, 9, 20, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 999,
   },
   filterBarBadgeText: {
     color: '#E50914',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
@@ -2404,7 +2475,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: 0,
+    marginTop: 6,
   },
   cardContainer: {
     width: screenWidth * 0.95,
@@ -2935,8 +3007,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterOptionButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#2C2C2C',
@@ -2951,7 +3023,7 @@ const styles = StyleSheet.create({
   },
   filterOptionText: {
     color: '#CCCCCC',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   filterOptionTextActive: {
@@ -2959,6 +3031,37 @@ const styles = StyleSheet.create({
   },
   filterOptionTextDisabled: {
     color: '#777777',
+  },
+  sliderTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#242424',
+    marginTop: 12,
+    marginBottom: 6,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  sliderTrackDisabled: {
+    opacity: 0.4,
+  },
+  sliderFill: {
+    height: '100%',
+    backgroundColor: '#E50914',
+    borderRadius: 999,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 3,
+    borderColor: '#E50914',
+    top: -7,
   },
   ageSliderHeader: {
     flexDirection: 'row',
@@ -2977,7 +3080,7 @@ const styles = StyleSheet.create({
   ageSliderHelperText: {
     color: '#9A9A9A',
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 4,
   },
   filterModalInfo: {
     flexDirection: 'row',
@@ -3034,7 +3137,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 16,
+    padding: 14,
     borderRadius: 16,
     backgroundColor: '#1A1A1A',
     borderWidth: 1,
@@ -3054,18 +3157,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   locationStatusLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
   },
   locationStatusIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: 'rgba(229, 9, 20, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -3077,12 +3180,12 @@ const styles = StyleSheet.create({
   },
   locationStatusSubtitle: {
     color: '#9A9A9A',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   locationActionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E50914',
@@ -3100,6 +3203,21 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     fontSize: 12,
     marginTop: 6,
+  },
+  distanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  distanceValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  distanceHelperText: {
+    color: '#9A9A9A',
+    fontSize: 12,
+    marginTop: 4,
   },
   moreText: {
     color: '#CCCCCC',
