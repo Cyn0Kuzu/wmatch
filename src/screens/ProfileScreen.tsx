@@ -802,16 +802,17 @@ export const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.linkedInLinkContainer}
                 onPress={() => {
-                  const url = profile.linkedInLink.startsWith('http') 
-                    ? profile.linkedInLink 
-                    : `https://${profile.linkedInLink}`;
+                  let url = profile.linkedInLink.trim();
+                  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = `https://${url}`;
+                  }
                   Linking.openURL(url).catch(err => {
                     console.error('LinkedIn URL açılamadı:', err);
                     Alert.alert('Hata', 'LinkedIn linki açılamadı');
                   });
                 }}
               >
-                <Icon name={Icons.link} size={16} color="#0077B5" />
+                <Text style={styles.linkedInIcon}>💼</Text>
                 <Text style={styles.linkedInLink}>{profile.linkedInLink}</Text>
               </TouchableOpacity>
             ) : (
@@ -1508,6 +1509,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flex: 1,
+  },
+  linkedInIcon: {
+    fontSize: 16,
   },
   linkedInLink: {
     color: '#0077B5',
