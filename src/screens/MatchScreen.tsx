@@ -34,6 +34,40 @@ const { width, height } = Dimensions.get('window');
 const HORIZONTAL_CARD_WIDTH = 120; // Sabit genişlik
 const HORIZONTAL_CARD_HEIGHT = HORIZONTAL_CARD_WIDTH * 1.5; // Standart poster oranı
 
+type GenderFilter = 'any' | 'female' | 'male';
+
+interface FilterSettings {
+  gender: GenderFilter;
+  ageRange: [number, number];
+  maxDistance: number;
+}
+
+const AGE_RANGE_PRESETS: Array<{ label: string; value: [number, number] }> = [
+  { label: '18-25', value: [18, 25] },
+  { label: '26-35', value: [26, 35] },
+  { label: '36-45', value: [36, 45] },
+  { label: '45+', value: [45, 99] },
+];
+
+const DISTANCE_PRESETS: Array<{ label: string; value: number }> = [
+  { label: '10 km', value: 10 },
+  { label: '25 km', value: 25 },
+  { label: '50 km', value: 50 },
+  { label: '100 km', value: 100 },
+];
+
+const DEFAULT_FILTER_SETTINGS: FilterSettings = {
+  gender: 'any',
+  ageRange: [18, 99],
+  maxDistance: 50,
+};
+
+const GENDER_LABEL_MAP: Record<GenderFilter, string> = {
+  any: 'Tümü',
+  female: 'Kadın',
+  male: 'Erkek',
+};
+
 // Match Effect Modal Styles
 const matchStyles = StyleSheet.create({
   container: {
@@ -1247,6 +1281,9 @@ export const MatchScreen: React.FC = () => {
   const [swipeLimits, setSwipeLimits] = useState<SwipeLimits | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [swipeHistory, setSwipeHistory] = useState<any[]>([]); // Geri alma için
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>(DEFAULT_FILTER_SETTINGS);
+  const [filterDraft, setFilterDraft] = useState<FilterSettings>(DEFAULT_FILTER_SETTINGS);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
   
   // Match effect states
   const [showMatchEffect, setShowMatchEffect] = useState(false);
@@ -1286,8 +1323,26 @@ export const MatchScreen: React.FC = () => {
     }
   };
 
+  const matchesGenderPreference = (candidate: any, target: GenderFilter): boolean => {
+    if (target === 'any') return true;
+    if (!candidate) return false;
 
-  const loadMatches = async () => {
+    const genderValue =
+      (typeof candidate.gender === 'string' && candidate.gender) ||
+      (candidate.profile && typeof candidate.profile.gender === 'string' && candidate.profile.gender) ||
+      '';
+
+    if (!genderValue) return false;
+
+    const normalized = genderValue.toLocaleLowerCase('tr-TR');
+    const femaleKeywords = ['female', 'kadın', 'kadin', 'woman'];
+    const maleKeywords = ['male', 'erkek', 'man'];
+    const keywords = target === 'female' ? femaleKeywords : maleKeywords;
+    return keywords.some(keyword => normalized.includes(keyword));
+  };
+
+
+  const loadMatches = async (overrideFilters?: FilterSettings) => {
     try {
       setLoading(true);
       const user = await authService.getCurrentUser();
@@ -1301,6 +1356,8 @@ export const MatchScreen: React.FC = () => {
         setLoading(false);
         return;
       }
+
+      const activeFilters = overrideFilters || filterSettings;
 
       // Get REAL currently watching with full details
       const currentUserMovies = await userDataManager.getUserCurrentlyWatchingWithLanguagePriority(user.uid);
@@ -1330,7 +1387,10 @@ export const MatchScreen: React.FC = () => {
         setCurrentMovieId(null);
       }
 
-      const matches = await matchService.getCurrentlyWatchingMatches(user.uid);
+      const matches = await matchService.getCurrentlyWatchingMatches(user.uid, {
+        ageRange: activeFilters.ageRange,
+        maxDistance: activeFilters.maxDistance,
+      });
       
       if (matches.length === 0) {
         // Kullanıcı film izliyorsa ama eşleşme yoksa daha uygun mesaj göster
@@ -1409,11 +1469,15 @@ export const MatchScreen: React.FC = () => {
         });
       
       const filteredUsers = otherUsers.filter(user => {
+        if (!matchesGenderPreference(user, activeFilters.gender)) {
+          return false;
+        }
         const userKey = `${user.id}_${currentMovieId}`;
         return !swipedUsers.has(userKey);
       });
       
       setUsers(filteredUsers);
+      setCurrentUserIndex(0);
     } catch (error) {
       console.error('Error loading matches:', error);
       Alert.alert('Hata', 'Eşleşmeler yüklenirken bir hata oluştu');
@@ -1421,6 +1485,70 @@ export const MatchScreen: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const isPremiumUser = Boolean(swipeLimits?.isPremium);
+
+  const promptPremiumUpgrade = () => {
+    Alert.alert(
+      'Premium gerekiyor',
+      'Filtreleri değiştirmek için premium üyelik gerekiyor. Premium ile sınırsız filtrelere erişebilirsiniz.',
+      [
+        { text: 'Daha sonra', style: 'cancel' },
+        {
+          text: 'Premium Al',
+          onPress: () => {
+            (async () => {
+              const user = await authService.getCurrentUser();
+              if (user) {
+                const result = await purchaseService.showPremiumPurchaseModal(user.uid);
+                if (result?.success) {
+                  await loadSwipeLimits();
+                }
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleOpenFilterModal = () => {
+    if (!isPremiumUser) {
+      promptPremiumUpgrade();
+      return;
+    }
+    setFilterDraft(filterSettings);
+    setFilterModalVisible(true);
+  };
+
+  const handleCloseFilterModal = () => {
+    setFilterModalVisible(false);
+    setFilterDraft(filterSettings);
+  };
+
+  const handleResetFilters = () => {
+    setFilterDraft(DEFAULT_FILTER_SETTINGS);
+  };
+
+  const handleApplyFilters = async () => {
+    setFilterModalVisible(false);
+    setFilterSettings(filterDraft);
+    await loadMatches(filterDraft);
+  };
+
+  const selectGenderFilter = (value: GenderFilter) => {
+    setFilterDraft(prev => ({ ...prev, gender: value }));
+  };
+
+  const selectAgeRangeFilter = (value: [number, number]) => {
+    setFilterDraft(prev => ({ ...prev, ageRange: value }));
+  };
+
+  const selectDistanceFilter = (value: number) => {
+    setFilterDraft(prev => ({ ...prev, maxDistance: value }));
+  };
+
+  const isSameRange = (a: [number, number], b: [number, number]) => a[0] === b[0] && a[1] === b[1];
 
   const handlePass = async () => {
     const currentUser = users[currentUserIndex];
@@ -1774,7 +1902,7 @@ export const MatchScreen: React.FC = () => {
             <Text style={styles.emptySubtitle}>
               Daha fazla eşleşme için yeni filmler izlemeye başlayın
             </Text>
-            <TouchableOpacity style={styles.emptyRefreshButton} onPress={loadMatches}>
+            <TouchableOpacity style={styles.emptyRefreshButton} onPress={() => loadMatches()}>
               <Text style={styles.emptyRefreshButtonText}>Yenile</Text>
             </TouchableOpacity>
             {swipeHistory.length > 0 && (
@@ -1799,24 +1927,74 @@ export const MatchScreen: React.FC = () => {
     );
   }
 
+  const genderLabel = GENDER_LABEL_MAP[filterSettings.gender];
+  const ageRangeLabel =
+    filterSettings.ageRange[1] >= 99
+      ? `${filterSettings.ageRange[0]}+`
+      : `${filterSettings.ageRange[0]}-${filterSettings.ageRange[1]}`;
+  const distanceLabel = `${filterSettings.maxDistance} km`;
+  const filterSummaryChips = [
+    `Cinsiyet: ${genderLabel}`,
+    `Yaş: ${ageRangeLabel}`,
+    `Mesafe: ${distanceLabel}`,
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.mainContent}>
-        <View style={styles.cardSection}>
-          {currentUser && currentUser.id ? (
-            <EnhancedMatchCard
-              user={currentUser}
-              onPass={handlePass}
-              onLike={handleLike}
-              onUndo={handleUndo}
-              currentMovie={currentMovie || null}
-            />
-          ) : (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#E50914" />
-              <Text style={styles.loadingText}>Kullanıcı yükleniyor...</Text>
+        <View style={styles.contentArea}>
+          <TouchableOpacity
+            style={[
+              styles.filterSummaryCard,
+              !isPremiumUser && styles.filterSummaryCardLocked,
+            ]}
+            activeOpacity={0.9}
+            onPress={handleOpenFilterModal}
+          >
+            <View style={styles.filterSummaryLeft}>
+              <View style={styles.filterIconWrapper}>
+                <Icon name={Icons.filter} size={20} color="#E50914" />
+              </View>
+              <View style={styles.filterSummaryTextWrapper}>
+                <Text style={styles.filterSummaryLabel}>Filtreler</Text>
+                <View style={styles.filterSummaryChips}>
+                  {filterSummaryChips.map((chip, index) => (
+                    <View key={`filter-chip-${index}`} style={styles.filterSummaryChip}>
+                      <Text style={styles.filterSummaryChipText}>{chip}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
             </View>
-          )}
+            <View style={styles.filterSummaryRight}>
+              {!isPremiumUser ? (
+                <View style={styles.filterPremiumIndicator}>
+                  <Icon name={Icons.lock} size={16} color="#E50914" />
+                  <Text style={styles.filterPremiumIndicatorText}>Premium</Text>
+                </View>
+              ) : (
+                <Text style={styles.filterSummaryAction}>Düzenle</Text>
+              )}
+              <Icon name={Icons.chevronRight} size={22} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.cardSection}>
+            {currentUser && currentUser.id ? (
+              <EnhancedMatchCard
+                user={currentUser}
+                onPass={handlePass}
+                onLike={handleLike}
+                onUndo={handleUndo}
+                currentMovie={currentMovie || null}
+              />
+            ) : (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#E50914" />
+                <Text style={styles.loadingText}>Kullanıcı yükleniyor...</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.footer}>
@@ -1849,6 +2027,130 @@ export const MatchScreen: React.FC = () => {
           )}
         </View>
       </View>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseFilterModal}
+      >
+        <TouchableOpacity
+          style={styles.filterModalOverlay}
+          activeOpacity={1}
+          onPress={handleCloseFilterModal}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={styles.filterModalContainer}
+          >
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Filtreleri Yönet</Text>
+              <TouchableOpacity onPress={handleCloseFilterModal}>
+                <Icon name={Icons.close} size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.filterModalSection}>
+              <Text style={styles.filterModalLabel}>Cinsiyet</Text>
+              <View style={styles.filterOptionRow}>
+                {(['any', 'female', 'male'] as GenderFilter[]).map(option => (
+                  <TouchableOpacity
+                    key={`gender-${option}`}
+                    style={[
+                      styles.filterOptionButton,
+                      filterDraft.gender === option && styles.filterOptionButtonActive,
+                    ]}
+                    onPress={() => selectGenderFilter(option)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        filterDraft.gender === option && styles.filterOptionTextActive,
+                      ]}
+                    >
+                      {GENDER_LABEL_MAP[option]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.filterModalSection}>
+              <Text style={styles.filterModalLabel}>Yaş Aralığı</Text>
+              <View style={styles.filterOptionRow}>
+                {AGE_RANGE_PRESETS.map(({ label, value }) => {
+                  const isActive = isSameRange(filterDraft.ageRange, value);
+                  return (
+                    <TouchableOpacity
+                      key={`age-${label}`}
+                      style={[
+                        styles.filterOptionButton,
+                        isActive && styles.filterOptionButtonActive,
+                      ]}
+                      onPress={() => selectAgeRangeFilter(value)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          isActive && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.filterModalSection}>
+              <Text style={styles.filterModalLabel}>Mesafe</Text>
+              <View style={styles.filterOptionRow}>
+                {DISTANCE_PRESETS.map(({ label, value }) => {
+                  const isActive = filterDraft.maxDistance === value;
+                  return (
+                    <TouchableOpacity
+                      key={`distance-${label}`}
+                      style={[
+                        styles.filterOptionButton,
+                        isActive && styles.filterOptionButtonActive,
+                      ]}
+                      onPress={() => selectDistanceFilter(value)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          isActive && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.filterModalInfo}>
+              <Icon name={Icons.info} size={16} color="#E50914" />
+              <Text style={styles.filterModalInfoText}>
+                Filtreler premium kullanıcılara özeldir. Seçimleriniz eşleşme önerilerini doğrudan etkiler.
+              </Text>
+            </View>
+
+            <View style={styles.filterModalFooter}>
+              <TouchableOpacity style={styles.filterResetButton} onPress={handleResetFilters}>
+                <Text style={styles.filterResetButtonText}>Sıfırla</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.filterApplyButton} onPress={handleApplyFilters}>
+                <Text style={styles.filterApplyButtonText}>Filtreyi Uygula</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Onboarding Modal */}
       <SwipeOnboardingModal
@@ -1890,6 +2192,96 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     justifyContent: 'space-between',
+  },
+  contentArea: {
+    flex: 1,
+    paddingHorizontal: 0,
+    paddingTop: 12,
+  },
+  filterSummaryCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#1F1F1F',
+    marginBottom: 12,
+    marginHorizontal: 20,
+  },
+  filterSummaryCardLocked: {
+    borderColor: '#2A2A2A',
+    opacity: 0.9,
+  },
+  filterSummaryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  filterIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  filterSummaryTextWrapper: {
+    flex: 1,
+  },
+  filterSummaryLabel: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  filterSummaryChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  filterSummaryChip: {
+    backgroundColor: '#1F1F1F',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#2D2D2D',
+  },
+  filterSummaryChipText: {
+    color: '#CCCCCC',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  filterSummaryRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterSummaryAction: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  filterPremiumIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(229, 9, 20, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  filterPremiumIndicatorText: {
+    color: '#E50914',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   scrollContent: {
     flexGrow: 1,
@@ -2389,6 +2781,119 @@ const styles = StyleSheet.create({
   },
   menuItemDanger: {
     color: '#FF6B6B',
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  filterModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#0F0F0F',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1F1F1F',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  filterModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  filterModalSection: {
+    marginBottom: 18,
+  },
+  filterModalLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+    letterSpacing: 0.3,
+  },
+  filterOptionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterOptionButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2C2C2C',
+    backgroundColor: '#151515',
+  },
+  filterOptionButtonActive: {
+    borderColor: '#E50914',
+    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+  },
+  filterOptionText: {
+    color: '#CCCCCC',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterOptionTextActive: {
+    color: '#FFFFFF',
+  },
+  filterModalInfo: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(229, 9, 20, 0.12)',
+    marginBottom: 20,
+  },
+  filterModalInfoText: {
+    color: '#F2B2B2',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  filterResetButton: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2D2D2D',
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#151515',
+  },
+  filterResetButtonText: {
+    color: '#CCCCCC',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterApplyButton: {
+    flex: 1,
+    borderRadius: 14,
+    backgroundColor: '#E50914',
+    paddingVertical: 12,
+    alignItems: 'center',
+    shadowColor: '#E50914',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  filterApplyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   moreText: {
     color: '#CCCCCC',
