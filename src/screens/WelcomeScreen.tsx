@@ -63,7 +63,7 @@ export const WelcomeScreen: React.FC = () => {
             
             <AnimatedText variant="body1" animation="fadeInUp" delay={1000} style={styles.description}>
               Binlerce film ve dizi arasından geçin. 
-              Akıllı öneri sistemimizle mükemmel eşleşmenizi bulun.
+              Mükemmel eşleşmenizi bulun.
             </AnimatedText>
 
             {/* Gizlilik Politikası Onay Kutucuğu */}

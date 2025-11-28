@@ -23,7 +23,6 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const completePendingProfile = async (user: any) => {
     try {
@@ -149,11 +148,6 @@ export const LoginScreen: React.FC = () => {
   const handleLogin = async () => {
     if (!email || !password) {
       showToast('Lütfen tüm alanları doldurun', 'error');
-      return;
-    }
-
-    if (!privacyAccepted) {
-      Alert.alert('Onay Gerekli', 'Giriş yapmak için Gizlilik Politikası ve Kullanım Şartları\'nı kabul etmelisiniz.');
       return;
     }
 
@@ -308,10 +302,10 @@ export const LoginScreen: React.FC = () => {
                   mode="contained"
                   onPress={handleLogin}
                   loading={loading}
-                  disabled={loading || !privacyAccepted}
+                  disabled={loading}
                   animation="pulse"
                   delay={600}
-                  style={[styles.loginButton, !privacyAccepted && styles.buttonDisabled]}
+                  style={styles.loginButton}
                   buttonColor="#E50914"
                   labelStyle={styles.buttonLabel}
                 >
@@ -321,40 +315,6 @@ export const LoginScreen: React.FC = () => {
               </Card.Content>
             </Card>
 
-            {/* Gizlilik Politikası Onay Kutucuğu */}
-            <View style={styles.privacyContainer}>
-              <TouchableOpacity
-                style={styles.checkboxContainer}
-                onPress={() => setPrivacyAccepted(!privacyAccepted)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkbox, privacyAccepted && styles.checkboxChecked]}>
-                  {privacyAccepted && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.privacyText}>
-                  <Text style={styles.privacyLinkText} onPress={() => {
-                    const privacyUrl = 'https://[KULLANICI_ADI].github.io/[REPO_ADI]/';
-                    Linking.openURL(privacyUrl).catch(err => {
-                      console.error('URL açılamadı:', err);
-                      Alert.alert('Hata', 'Gizlilik politikası sayfası açılamadı.');
-                    });
-                  }}>
-                    Gizlilik Politikası
-                  </Text>
-                  {' '}ve{' '}
-                  <Text style={styles.privacyLinkText} onPress={() => {
-                    const privacyUrl = 'https://[KULLANICI_ADI].github.io/[REPO_ADI]/';
-                    Linking.openURL(privacyUrl).catch(err => {
-                      console.error('URL açılamadı:', err);
-                      Alert.alert('Hata', 'Gizlilik politikası sayfası açılamadı.');
-                    });
-                  }}>
-                    Kullanım Şartları
-                  </Text>
-                  'nı okudum ve kabul ediyorum.
-                </Text>
-              </TouchableOpacity>
-            </View>
 
               <View style={styles.footer}>
                 <AnimatedText variant="body2" animation="fadeInUp" delay={800} style={styles.footerText}>
@@ -484,50 +444,6 @@ const styles = StyleSheet.create({
   linkText: { 
     color: '#E50914', 
     fontWeight: '600' 
-  },
-  privacyContainer: {
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: '#8C8C8C',
-    borderRadius: 4,
-    marginRight: 10,
-    marginTop: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  checkboxChecked: {
-    backgroundColor: '#E50914',
-    borderColor: '#E50914',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  privacyText: {
-    color: '#8C8C8C',
-    fontSize: 11,
-    lineHeight: 16,
-    flex: 1,
-  },
-  privacyLinkText: {
-    color: '#E50914',
-    textDecorationLine: 'underline',
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
   iconButton: {
     padding: 8,
