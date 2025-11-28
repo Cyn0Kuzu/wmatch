@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
   Animated,
   Modal,
   PanResponder,
-  RefreshControl,
 } from 'react-native';
 import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
@@ -961,7 +960,6 @@ export const MatchScreen: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [currentUserIndex, setCurrentUserIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [currentMovie, setCurrentMovie] = useState<any>(null);
   const [swipedUsers, setSwipedUsers] = useState<Set<string>>(new Set());
   const [currentMovieId, setCurrentMovieId] = useState<string | null>(null);
@@ -1005,11 +1003,6 @@ export const MatchScreen: React.FC = () => {
     }
   };
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadMatches();
-    setRefreshing(false);
-  }, []);
 
   const loadMatches = async () => {
     try {
@@ -1379,14 +1372,6 @@ export const MatchScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.emptyScrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#E50914']}
-              tintColor="#E50914"
-            />
-          }
         >
           <View style={styles.emptyContainer}>
             <Icon name={Icons.watch} size={48} color="#8C8C8C" />
@@ -1420,14 +1405,6 @@ export const MatchScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={true}
         bounces={true}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#E50914']}
-            tintColor="#E50914"
-          />
-        }
       >
         <View style={styles.cardSection}>
           {currentUser && currentUser.id ? (
