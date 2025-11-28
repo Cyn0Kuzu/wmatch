@@ -1873,6 +1873,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  mainContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
   scrollContent: {
     flexGrow: 1,
   },
