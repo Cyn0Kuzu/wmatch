@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import {
   PanResponder,
   Linking,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
+import * as Location from 'expo-location';
 import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
 import { Timestamp } from 'firebase/firestore';
@@ -42,12 +44,8 @@ interface FilterSettings {
   maxDistance: number;
 }
 
-const AGE_RANGE_PRESETS: Array<{ label: string; value: [number, number] }> = [
-  { label: '18-25', value: [18, 25] },
-  { label: '26-35', value: [26, 35] },
-  { label: '36-45', value: [36, 45] },
-  { label: '45+', value: [45, 99] },
-];
+const MIN_AGE = 18;
+const MAX_AGE = 65;
 
 const DISTANCE_PRESETS: Array<{ label: string; value: number }> = [
   { label: '10 km', value: 10 },
@@ -58,7 +56,7 @@ const DISTANCE_PRESETS: Array<{ label: string; value: number }> = [
 
 const DEFAULT_FILTER_SETTINGS: FilterSettings = {
   gender: 'any',
-  ageRange: [18, 99],
+  ageRange: [MIN_AGE, 45],
   maxDistance: 50,
 };
 
@@ -1284,6 +1282,10 @@ export const MatchScreen: React.FC = () => {
   const [filterSettings, setFilterSettings] = useState<FilterSettings>(DEFAULT_FILTER_SETTINGS);
   const [filterDraft, setFilterDraft] = useState<FilterSettings>(DEFAULT_FILTER_SETTINGS);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [requestingLocation, setRequestingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   
   // Match effect states
   const [showMatchEffect, setShowMatchEffect] = useState(false);
@@ -1322,6 +1324,51 @@ export const MatchScreen: React.FC = () => {
       console.error('Error loading swipe limits:', error);
     }
   };
+
+  const requestLocationPermission = useCallback(async (showAlertOnDeny = false) => {
+    try {
+      setRequestingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationPermissionStatus('denied');
+        setLocationError('Konum izni verilmedi');
+        if (showAlertOnDeny) {
+          Alert.alert(
+            'Konum İzni Gerekli',
+            'Mesafe filtrelerinin doğru çalışması için konum erişimine izin vermeniz gerekir.'
+          );
+        }
+        return false;
+      }
+      setLocationPermissionStatus('granted');
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setCurrentCoords({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+      setLocationError(null);
+      return true;
+    } catch (error) {
+      console.error('Error requesting location:', error);
+      setLocationPermissionStatus('denied');
+      setLocationError('Konum alınamadı');
+      if (showAlertOnDeny) {
+        Alert.alert(
+          'Konum Hatası',
+          'Konum bilgisi alınırken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.'
+        );
+      }
+      return false;
+    } finally {
+      setRequestingLocation(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    requestLocationPermission();
+  }, [requestLocationPermission]);
 
   const matchesGenderPreference = (candidate: any, target: GenderFilter): boolean => {
     if (target === 'any') return true;
@@ -1537,14 +1584,13 @@ export const MatchScreen: React.FC = () => {
   };
 
   const selectAgeRangeFilter = (value: [number, number]) => {
-    setFilterDraft(prev => ({ ...prev, ageRange: value }));
+    const sanitizedMax = Math.min(Math.max(Math.round(value[1]), MIN_AGE + 2), MAX_AGE);
+    setFilterDraft(prev => ({ ...prev, ageRange: [MIN_AGE, sanitizedMax] }));
   };
 
   const selectDistanceFilter = (value: number) => {
     setFilterDraft(prev => ({ ...prev, maxDistance: value }));
   };
-
-  const isSameRange = (a: [number, number], b: [number, number]) => a[0] === b[0] && a[1] === b[1];
 
   const handlePass = async () => {
     const currentUser = users[currentUserIndex];
@@ -1925,14 +1971,26 @@ export const MatchScreen: React.FC = () => {
 
   const genderLabel = GENDER_LABEL_MAP[filterSettings.gender];
   const ageRangeLabel =
-    filterSettings.ageRange[1] >= 99
+    filterSettings.ageRange[1] >= MAX_AGE
       ? `${filterSettings.ageRange[0]}+`
       : `${filterSettings.ageRange[0]}-${filterSettings.ageRange[1]}`;
   const distanceLabel = `${filterSettings.maxDistance} km`;
+  const locationCardValue =
+    locationPermissionStatus === 'granted'
+      ? currentCoords
+        ? 'Aktif'
+        : 'Kontrol ediliyor'
+      : locationPermissionStatus === 'denied'
+      ? 'İzin gerekli'
+      : requestingLocation
+      ? 'İsteniyor...'
+      : 'Bekleniyor';
+
   const filterCardItems = [
     { key: 'gender', label: 'Cinsiyet', value: genderLabel, icon: Icons.person },
-    { key: 'age', label: 'Yaş Aralığı', value: ageRangeLabel, icon: Icons.match },
-    { key: 'distance', label: 'Mesafe', value: distanceLabel, icon: Icons.location },
+    { key: 'age', label: 'Yaş Aralığı', value: ageRangeLabel, icon: Icons.users },
+    { key: 'distance', label: 'Mesafe', value: distanceLabel, icon: Icons.target },
+    { key: 'location', label: 'Konum', value: locationCardValue, icon: Icons.location },
   ];
 
   return (
@@ -2082,35 +2140,33 @@ export const MatchScreen: React.FC = () => {
             </View>
 
             <View style={styles.filterModalSection}>
-              <Text style={styles.filterModalLabel}>Yaş Aralığı</Text>
-              <View style={styles.filterOptionRow}>
-                {AGE_RANGE_PRESETS.map(({ label, value }) => {
-                  const isActive = isSameRange(filterDraft.ageRange, value);
-                  return (
-                    <TouchableOpacity
-                      key={`age-${label}`}
-                      style={[
-                        styles.filterOptionButton,
-                        isActive && styles.filterOptionButtonActive,
-                        !isPremiumUser && styles.filterOptionButtonDisabled,
-                      ]}
-                      disabled={!isPremiumUser}
-                      activeOpacity={isPremiumUser ? 0.8 : 1}
-                      onPress={() => selectAgeRangeFilter(value)}
-                    >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          isActive && styles.filterOptionTextActive,
-                          !isPremiumUser && styles.filterOptionTextDisabled,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View style={styles.ageSliderHeader}>
+                <Text style={styles.filterModalLabel}>Yaş Aralığı</Text>
+                <Text style={styles.ageSliderValue}>
+                  {MIN_AGE} - {filterDraft.ageRange[1]}
+                </Text>
               </View>
+              <Slider
+                style={styles.ageSlider}
+                minimumValue={MIN_AGE + 2}
+                maximumValue={MAX_AGE}
+                step={1}
+                value={filterDraft.ageRange[1]}
+                minimumTrackTintColor="#E50914"
+                maximumTrackTintColor="#2A2A2A"
+                thumbTintColor="#E50914"
+                disabled={!isPremiumUser}
+                onValueChange={(value: number) => selectAgeRangeFilter([MIN_AGE, Math.round(value)])}
+              />
+              {!isPremiumUser ? (
+                <Text style={styles.ageSliderHelperText}>
+                  Premium ile maksimum yaş sınırını ayarlayabilirsiniz. Şu anda varsayılan değer gösteriliyor.
+                </Text>
+              ) : (
+                <Text style={styles.ageSliderHelperText}>
+                  Kaydırıcıyı hareket ettirerek hangi maksimum yaşa kadar eşleşme görmek istediğinizi seçin.
+                </Text>
+              )}
             </View>
 
             <View style={styles.filterModalSection}>
@@ -2143,6 +2199,47 @@ export const MatchScreen: React.FC = () => {
                   );
                 })}
               </View>
+            </View>
+
+            <View style={styles.filterModalSection}>
+              <Text style={styles.filterModalLabel}>Konum</Text>
+              <View style={styles.locationStatusRow}>
+                <View style={styles.locationStatusLeft}>
+                  <View style={styles.locationStatusIcon}>
+                    <Icon name={Icons.location} size={18} color="#E50914" />
+                  </View>
+                  <View>
+                    <Text style={styles.locationStatusTitle}>
+                      {locationPermissionStatus === 'granted' ? 'Konum izni aktif' : 'Konum izni gerekli'}
+                    </Text>
+                    <Text style={styles.locationStatusSubtitle}>
+                      {locationPermissionStatus === 'granted' && currentCoords
+                        ? `Lat ${currentCoords.latitude.toFixed(2)}, Lon ${currentCoords.longitude.toFixed(2)}`
+                        : 'Mesafe filtrelerinin doğru çalışması için konum erişimi gerekli'}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.locationActionButton,
+                    (locationPermissionStatus === 'granted' || requestingLocation) && styles.locationActionButtonDisabled,
+                  ]}
+                  disabled={locationPermissionStatus === 'granted' || requestingLocation}
+                  onPress={() => requestLocationPermission(true)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.locationActionButtonText}>
+                    {locationPermissionStatus === 'granted'
+                      ? 'Aktif'
+                      : requestingLocation
+                      ? 'İsteniyor...'
+                      : 'İzin Ver'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {locationError && (
+                <Text style={styles.locationErrorText}>{locationError}</Text>
+              )}
             </View>
 
             <View style={styles.filterModalInfo}>
@@ -2863,6 +2960,25 @@ const styles = StyleSheet.create({
   filterOptionTextDisabled: {
     color: '#777777',
   },
+  ageSliderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ageSliderValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  ageSlider: {
+    width: '100%',
+    marginTop: 8,
+  },
+  ageSliderHelperText: {
+    color: '#9A9A9A',
+    fontSize: 12,
+    marginTop: 8,
+  },
   filterModalInfo: {
     flexDirection: 'row',
     gap: 6,
@@ -2933,6 +3049,57 @@ const styles = StyleSheet.create({
     color: '#CCCCCC',
     fontSize: 12,
     marginTop: 2,
+  },
+  locationStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  locationStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  locationStatusIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(229, 9, 20, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationStatusTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  locationStatusSubtitle: {
+    color: '#9A9A9A',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  locationActionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E50914',
+  },
+  locationActionButtonDisabled: {
+    opacity: 0.5,
+    borderColor: '#2C2C2C',
+  },
+  locationActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  locationErrorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    marginTop: 6,
   },
   moreText: {
     color: '#CCCCCC',
