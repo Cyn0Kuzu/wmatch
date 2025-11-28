@@ -1597,6 +1597,12 @@ const styles = StyleSheet.create({
     height: 120,
     textAlignVertical: 'top',
   },
+  helpText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: -12,
+    marginBottom: 12,
+  },
   validationMessage: {
     fontSize: 14,
     marginTop: -12,
