@@ -1513,10 +1513,6 @@ export const MatchScreen: React.FC = () => {
   };
 
   const handleOpenFilterModal = () => {
-    if (!isPremiumUser) {
-      promptPremiumUpgrade();
-      return;
-    }
     setFilterDraft(filterSettings);
     setFilterModalVisible(true);
   };
@@ -1933,51 +1929,55 @@ export const MatchScreen: React.FC = () => {
       ? `${filterSettings.ageRange[0]}+`
       : `${filterSettings.ageRange[0]}-${filterSettings.ageRange[1]}`;
   const distanceLabel = `${filterSettings.maxDistance} km`;
-  const filterSummaryChips = [
-    `Cinsiyet: ${genderLabel}`,
-    `Yaş: ${ageRangeLabel}`,
-    `Mesafe: ${distanceLabel}`,
+  const filterCardItems = [
+    { key: 'gender', label: 'Cinsiyet', value: genderLabel, icon: Icons.person },
+    { key: 'age', label: 'Yaş Aralığı', value: ageRangeLabel, icon: Icons.match },
+    { key: 'distance', label: 'Mesafe', value: distanceLabel, icon: Icons.location },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.mainContent}>
         <View style={styles.contentArea}>
-          <TouchableOpacity
-            style={[
-              styles.filterSummaryCard,
-              !isPremiumUser && styles.filterSummaryCardLocked,
-            ]}
-            activeOpacity={0.9}
-            onPress={handleOpenFilterModal}
-          >
-            <View style={styles.filterSummaryLeft}>
-              <View style={styles.filterIconWrapper}>
-                <Icon name={Icons.filter} size={20} color="#E50914" />
-              </View>
-              <View style={styles.filterSummaryTextWrapper}>
-                <Text style={styles.filterSummaryLabel}>Filtreler</Text>
-                <View style={styles.filterSummaryChips}>
-                  {filterSummaryChips.map((chip, index) => (
-                    <View key={`filter-chip-${index}`} style={styles.filterSummaryChip}>
-                      <Text style={styles.filterSummaryChipText}>{chip}</Text>
-                    </View>
-                  ))}
+          <View style={styles.filterBarContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterBarScrollContent}
+            >
+              {filterCardItems.map(item => (
+                <TouchableOpacity
+                  key={`filter-card-${item.key}`}
+                  style={[
+                    styles.filterCard,
+                    !isPremiumUser && styles.filterCardLocked,
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={handleOpenFilterModal}
+                >
+                  <View style={styles.filterCardIconCircle}>
+                    <Icon name={item.icon} size={18} color="#E50914" />
+                  </View>
+                  <Text style={styles.filterCardLabel}>{item.label}</Text>
+                  <Text style={styles.filterCardValue}>{item.value}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.filterBarHintButton}
+              activeOpacity={0.85}
+              onPress={handleOpenFilterModal}
+            >
+              <Icon name={Icons.filter} size={18} color="#FFFFFF" />
+              <Text style={styles.filterBarHintText}>Filtreleri Aç</Text>
+              {!isPremiumUser && (
+                <View style={styles.filterBarBadge}>
+                  <Icon name={Icons.lock} size={14} color="#E50914" />
+                  <Text style={styles.filterBarBadgeText}>Premium</Text>
                 </View>
-              </View>
-            </View>
-            <View style={styles.filterSummaryRight}>
-              {!isPremiumUser ? (
-                <View style={styles.filterPremiumIndicator}>
-                  <Icon name={Icons.lock} size={16} color="#E50914" />
-                  <Text style={styles.filterPremiumIndicatorText}>Premium</Text>
-                </View>
-              ) : (
-                <Text style={styles.filterSummaryAction}>Düzenle</Text>
               )}
-              <Icon name={Icons.chevronRight} size={22} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.cardSection}>
             {currentUser && currentUser.id ? (
@@ -2061,13 +2061,17 @@ export const MatchScreen: React.FC = () => {
                     style={[
                       styles.filterOptionButton,
                       filterDraft.gender === option && styles.filterOptionButtonActive,
+                      !isPremiumUser && styles.filterOptionButtonDisabled,
                     ]}
+                    disabled={!isPremiumUser}
+                    activeOpacity={isPremiumUser ? 0.8 : 1}
                     onPress={() => selectGenderFilter(option)}
                   >
                     <Text
                       style={[
                         styles.filterOptionText,
                         filterDraft.gender === option && styles.filterOptionTextActive,
+                        !isPremiumUser && styles.filterOptionTextDisabled,
                       ]}
                     >
                       {GENDER_LABEL_MAP[option]}
@@ -2088,13 +2092,17 @@ export const MatchScreen: React.FC = () => {
                       style={[
                         styles.filterOptionButton,
                         isActive && styles.filterOptionButtonActive,
+                        !isPremiumUser && styles.filterOptionButtonDisabled,
                       ]}
+                      disabled={!isPremiumUser}
+                      activeOpacity={isPremiumUser ? 0.8 : 1}
                       onPress={() => selectAgeRangeFilter(value)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
                           isActive && styles.filterOptionTextActive,
+                          !isPremiumUser && styles.filterOptionTextDisabled,
                         ]}
                       >
                         {label}
@@ -2116,13 +2124,17 @@ export const MatchScreen: React.FC = () => {
                       style={[
                         styles.filterOptionButton,
                         isActive && styles.filterOptionButtonActive,
+                        !isPremiumUser && styles.filterOptionButtonDisabled,
                       ]}
+                      disabled={!isPremiumUser}
+                      activeOpacity={isPremiumUser ? 0.8 : 1}
                       onPress={() => selectDistanceFilter(value)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
                           isActive && styles.filterOptionTextActive,
+                          !isPremiumUser && styles.filterOptionTextDisabled,
                         ]}
                       >
                         {label}
@@ -2136,18 +2148,35 @@ export const MatchScreen: React.FC = () => {
             <View style={styles.filterModalInfo}>
               <Icon name={Icons.info} size={16} color="#E50914" />
               <Text style={styles.filterModalInfoText}>
-                Filtreler premium kullanıcılara özeldir. Seçimleriniz eşleşme önerilerini doğrudan etkiler.
+                {isPremiumUser
+                  ? 'Filtreleri özelleştirerek daha uyumlu eşleşmelere ulaşabilirsiniz.'
+                  : 'Filtreleri değiştirmek için Premium üyelik gerekir. Premium ile yaş, cinsiyet ve mesafe filtrelerini kişiselleştirebilirsiniz.'}
               </Text>
             </View>
 
-            <View style={styles.filterModalFooter}>
-              <TouchableOpacity style={styles.filterResetButton} onPress={handleResetFilters}>
-                <Text style={styles.filterResetButtonText}>Sıfırla</Text>
+            {isPremiumUser ? (
+              <View style={styles.filterModalFooter}>
+                <TouchableOpacity style={styles.filterResetButton} onPress={handleResetFilters}>
+                  <Text style={styles.filterResetButtonText}>Sıfırla</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.filterApplyButton} onPress={handleApplyFilters}>
+                  <Text style={styles.filterApplyButtonText}>Filtreyi Uygula</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.filterPremiumCTA}
+                onPress={promptPremiumUpgrade}
+                activeOpacity={0.85}
+              >
+                <Icon name={Icons.lock} size={18} color="#FFFFFF" />
+                <View>
+                  <Text style={styles.filterPremiumCTATitle}>Premium ile filtreleri aç</Text>
+                  <Text style={styles.filterPremiumCTASubtitle}>Cinsiyet, yaş ve mesafe seçeneklerini dilediğin gibi ayarla</Text>
+                </View>
+                <Icon name={Icons.chevronRight} size={20} color="#FFFFFF" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.filterApplyButton} onPress={handleApplyFilters}>
-                <Text style={styles.filterApplyButtonText}>Filtreyi Uygula</Text>
-              </TouchableOpacity>
-            </View>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -2195,89 +2224,73 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    paddingHorizontal: 0,
     paddingTop: 12,
   },
-  filterSummaryCard: {
+  filterBarContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  filterBarScrollContent: {
+    paddingRight: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  },
+  filterCard: {
+    width: 150,
     backgroundColor: '#111111',
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#1F1F1F',
-    marginBottom: 12,
-    marginHorizontal: 20,
+    marginRight: 12,
   },
-  filterSummaryCardLocked: {
-    borderColor: '#2A2A2A',
+  filterCardLocked: {
     opacity: 0.9,
   },
-  filterSummaryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
-  },
-  filterIconWrapper: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+  filterCardIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: 'rgba(229, 9, 20, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginBottom: 10,
   },
-  filterSummaryTextWrapper: {
-    flex: 1,
-  },
-  filterSummaryLabel: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  filterSummaryChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  filterSummaryChip: {
-    backgroundColor: '#1F1F1F',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#2D2D2D',
-  },
-  filterSummaryChipText: {
-    color: '#CCCCCC',
+  filterCardLabel: {
+    color: '#9A9A9A',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  filterSummaryRight: {
+  filterCardValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  filterBarHintButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 10,
     gap: 8,
   },
-  filterSummaryAction: {
+  filterBarHintText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.3,
   },
-  filterPremiumIndicator: {
+  filterBarBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(229, 9, 20, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    marginLeft: 10,
+    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
   },
-  filterPremiumIndicatorText: {
+  filterBarBadgeText: {
     color: '#E50914',
     fontSize: 11,
     fontWeight: '700',
@@ -2836,6 +2849,9 @@ const styles = StyleSheet.create({
     borderColor: '#E50914',
     backgroundColor: 'rgba(229, 9, 20, 0.15)',
   },
+  filterOptionButtonDisabled: {
+    opacity: 0.5,
+  },
   filterOptionText: {
     color: '#CCCCCC',
     fontSize: 13,
@@ -2843,6 +2859,9 @@ const styles = StyleSheet.create({
   },
   filterOptionTextActive: {
     color: '#FFFFFF',
+  },
+  filterOptionTextDisabled: {
+    color: '#777777',
   },
   filterModalInfo: {
     flexDirection: 'row',
@@ -2894,6 +2913,26 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  filterPremiumCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  filterPremiumCTATitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  filterPremiumCTASubtitle: {
+    color: '#CCCCCC',
+    fontSize: 12,
+    marginTop: 2,
   },
   moreText: {
     color: '#CCCCCC',
