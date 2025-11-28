@@ -17,6 +17,7 @@ import {
   TextInput,
   Vibration,
   Platform,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCoreEngine } from '../core/CoreEngine';
@@ -47,7 +48,7 @@ export const ProfileScreen: React.FC = () => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showGalleryEditor, setShowGalleryEditor] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editField, setEditField] = useState<'name' | 'username' | 'bio' | null>(null);
+  const [editField, setEditField] = useState<'name' | 'username' | 'bio' | 'linkedIn' | null>(null);
   const [editValue, setEditValue] = useState('');
   const [usernameValidation, setUsernameValidation] = useState({
     isValid: false,
@@ -174,6 +175,7 @@ export const ProfileScreen: React.FC = () => {
         
         // Profil detayları - database'deki GERÇEK değerler
         bio: userDoc.bio || userDoc.profile?.bio || '',
+        linkedInLink: userDoc.linkedInLink || userDoc.socialLinks?.linkedIn || userDoc.social?.socialLinks?.linkedIn || '',
         age: userDoc.age || userDoc.birthDate || null,
         gender: userDoc.gender || '',
         location: userDoc.location || '',
@@ -244,7 +246,7 @@ export const ProfileScreen: React.FC = () => {
     setRefreshing(false);
   }, []);
 
-  const handleEditField = (field: 'name' | 'username' | 'bio') => {
+  const handleEditField = (field: 'name' | 'username' | 'bio' | 'linkedIn') => {
     if (!profile) return;
     
     setEditField(field);
@@ -255,6 +257,8 @@ export const ProfileScreen: React.FC = () => {
       setEditValue(profile.username || '');
     } else if (field === 'bio') {
       setEditValue(profile.bio || '');
+    } else if (field === 'linkedIn') {
+      setEditValue(profile.linkedInLink || '');
     }
     
     setShowEditModal(true);
@@ -283,6 +287,14 @@ export const ProfileScreen: React.FC = () => {
         updateData.username = editValue.trim().toLowerCase();
       } else if (editField === 'bio') {
         updateData.bio = editValue.trim();
+      } else if (editField === 'linkedIn') {
+        // LinkedIn linkini kaydet (boş bırakılabilir)
+        updateData.linkedInLink = editValue.trim();
+        // Ayrıca socialLinks objesi varsa oraya da ekle
+        if (!updateData.socialLinks) {
+          updateData.socialLinks = {};
+        }
+        updateData.socialLinks.linkedIn = editValue.trim();
       }
 
       await firestoreService.updateUserDocument(user.uid, updateData);
@@ -783,6 +795,32 @@ export const ProfileScreen: React.FC = () => {
               <Text style={styles.editIconText}>✎</Text>
           </TouchableOpacity>
           </View>
+          
+          {/* LinkedIn Linki - Database'den gerçek veri */}
+          <View style={styles.linkedInRow}>
+            {profile.linkedInLink && profile.linkedInLink.trim() ? (
+              <TouchableOpacity 
+                style={styles.linkedInLinkContainer}
+                onPress={() => {
+                  const url = profile.linkedInLink.startsWith('http') 
+                    ? profile.linkedInLink 
+                    : `https://${profile.linkedInLink}`;
+                  Linking.openURL(url).catch(err => {
+                    console.error('LinkedIn URL açılamadı:', err);
+                    Alert.alert('Hata', 'LinkedIn linki açılamadı');
+                  });
+                }}
+              >
+                <Icon name={Icons.link} size={16} color="#0077B5" />
+                <Text style={styles.linkedInLink}>{profile.linkedInLink}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.linkedInPlaceholder}>LinkedIn linki yok</Text>
+            )}
+            <TouchableOpacity style={styles.editIconSmall} onPress={() => handleEditField('linkedIn')}>
+              <Text style={styles.editIconText}>✎</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tab Buttons */}
@@ -930,7 +968,8 @@ export const ProfileScreen: React.FC = () => {
             <Text style={styles.editModalTitle}>
               {editField === 'name' ? 'İsim Düzenle' : 
                editField === 'username' ? 'Kullanıcı Adı Düzenle' : 
-               'Biyografi Düzenle'}
+               editField === 'bio' ? 'Biyografi Düzenle' :
+               'LinkedIn Linki Düzenle'}
             </Text>
             
             <TextInput
@@ -943,13 +982,21 @@ export const ProfileScreen: React.FC = () => {
               placeholder={
                 editField === 'name' ? 'Adınız' :
                 editField === 'username' ? 'Kullanıcı adınız' :
-                'Kendinizi tanıtın...'
+                editField === 'bio' ? 'Kendinizi tanıtın...' :
+                'LinkedIn profil linkiniz (örn: linkedin.com/in/kullaniciadi)'
               }
               placeholderTextColor="#666"
               multiline={editField === 'bio'}
               numberOfLines={editField === 'bio' ? 4 : 1}
-              autoCapitalize={editField === 'username' ? 'none' : 'words'}
+              autoCapitalize={editField === 'username' ? 'none' : editField === 'linkedIn' ? 'none' : 'words'}
+              keyboardType={editField === 'linkedIn' ? 'url' : 'default'}
             />
+            
+            {editField === 'linkedIn' && (
+              <Text style={styles.helpText}>
+                LinkedIn linkinizi girebilir veya boş bırakarak silebilirsiniz.
+              </Text>
+            )}
             
             {/* Username validation message */}
             {editField === 'username' && usernameValidation.message ? (
@@ -1448,6 +1495,31 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
     marginTop: 12,
+  },
+  linkedInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  linkedInLinkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  linkedInLink: {
+    color: '#0077B5',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+    flex: 1,
+  },
+  linkedInPlaceholder: {
+    color: '#666',
+    fontSize: 14,
+    fontStyle: 'italic',
+    flex: 1,
   },
   editIcon: {
     width: 32,
