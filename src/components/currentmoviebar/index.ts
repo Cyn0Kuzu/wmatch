@@ -1,0 +1,2 @@
+export { CurrentMovieBar } from './CurrentMovieBar';
+
