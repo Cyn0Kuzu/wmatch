@@ -1765,8 +1765,8 @@ export const MatchScreen: React.FC = () => {
             <Text style={styles.emptySubtitle}>
               Daha fazla eşleşme için yeni filmler izlemeye başlayın
             </Text>
-            <TouchableOpacity style={styles.refreshButton} onPress={loadMatches}>
-              <Text style={styles.refreshButtonText}>Yenile</Text>
+            <TouchableOpacity style={styles.emptyRefreshButton} onPress={loadMatches}>
+              <Text style={styles.emptyRefreshButtonText}>Yenile</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
