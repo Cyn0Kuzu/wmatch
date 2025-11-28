@@ -48,7 +48,7 @@ export const ProfileScreen: React.FC = () => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showGalleryEditor, setShowGalleryEditor] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editField, setEditField] = useState<'name' | 'username' | 'bio' | 'linkedIn' | null>(null);
+  const [editField, setEditField] = useState<'name' | 'username' | 'bio' | 'letterboxd' | null>(null);
   const [editValue, setEditValue] = useState('');
   const [usernameValidation, setUsernameValidation] = useState({
     isValid: false,
@@ -175,7 +175,7 @@ export const ProfileScreen: React.FC = () => {
         
         // Profil detayları - database'deki GERÇEK değerler
         bio: userDoc.bio || userDoc.profile?.bio || '',
-        linkedInLink: userDoc.linkedInLink || userDoc.socialLinks?.linkedIn || userDoc.social?.socialLinks?.linkedIn || '',
+        letterboxdLink: userDoc.letterboxdLink || userDoc.socialLinks?.letterboxd || userDoc.social?.socialLinks?.letterboxd || '',
         age: userDoc.age || userDoc.birthDate || null,
         gender: userDoc.gender || '',
         location: userDoc.location || '',
@@ -246,7 +246,7 @@ export const ProfileScreen: React.FC = () => {
     setRefreshing(false);
   }, []);
 
-  const handleEditField = (field: 'name' | 'username' | 'bio' | 'linkedIn') => {
+  const handleEditField = (field: 'name' | 'username' | 'bio' | 'letterboxd') => {
     if (!profile) return;
     
     setEditField(field);
@@ -257,8 +257,8 @@ export const ProfileScreen: React.FC = () => {
       setEditValue(profile.username || '');
     } else if (field === 'bio') {
       setEditValue(profile.bio || '');
-    } else if (field === 'linkedIn') {
-      setEditValue(profile.linkedInLink || '');
+    } else if (field === 'letterboxd') {
+      setEditValue(profile.letterboxdLink || '');
     }
     
     setShowEditModal(true);
@@ -287,14 +287,14 @@ export const ProfileScreen: React.FC = () => {
         updateData.username = editValue.trim().toLowerCase();
       } else if (editField === 'bio') {
         updateData.bio = editValue.trim();
-      } else if (editField === 'linkedIn') {
-        // LinkedIn linkini kaydet (boş bırakılabilir)
-        updateData.linkedInLink = editValue.trim();
+      } else if (editField === 'letterboxd') {
+        // Letterboxd linkini kaydet (boş bırakılabilir)
+        updateData.letterboxdLink = editValue.trim();
         // Ayrıca socialLinks objesi varsa oraya da ekle
         if (!updateData.socialLinks) {
           updateData.socialLinks = {};
         }
-        updateData.socialLinks.linkedIn = editValue.trim();
+        updateData.socialLinks.letterboxd = editValue.trim();
       }
 
       await firestoreService.updateUserDocument(user.uid, updateData);
@@ -796,29 +796,29 @@ export const ProfileScreen: React.FC = () => {
           </TouchableOpacity>
           </View>
           
-          {/* LinkedIn Linki - Database'den gerçek veri */}
-          <View style={styles.linkedInRow}>
-            {profile.linkedInLink && profile.linkedInLink.trim() ? (
+          {/* Letterboxd Linki - Database'den gerçek veri */}
+          <View style={styles.letterboxdRow}>
+            {profile.letterboxdLink && profile.letterboxdLink.trim() ? (
               <TouchableOpacity 
-                style={styles.linkedInLinkContainer}
+                style={styles.letterboxdLinkContainer}
                 onPress={() => {
-                  let url = profile.linkedInLink.trim();
+                  let url = profile.letterboxdLink.trim();
                   if (!url.startsWith('http://') && !url.startsWith('https://')) {
                     url = `https://${url}`;
                   }
                   Linking.openURL(url).catch(err => {
-                    console.error('LinkedIn URL açılamadı:', err);
-                    Alert.alert('Hata', 'LinkedIn linki açılamadı');
+                    console.error('Letterboxd URL açılamadı:', err);
+                    Alert.alert('Hata', 'Letterboxd linki açılamadı');
                   });
                 }}
               >
-                <Text style={styles.linkedInIcon}>💼</Text>
-                <Text style={styles.linkedInLink}>{profile.linkedInLink}</Text>
+                <Text style={styles.letterboxdIcon}>🎬</Text>
+                <Text style={styles.letterboxdLink}>{profile.letterboxdLink}</Text>
               </TouchableOpacity>
             ) : (
-              <Text style={styles.linkedInPlaceholder}>LinkedIn linki yok</Text>
+              <Text style={styles.letterboxdPlaceholder}>Letterboxd linki yok</Text>
             )}
-            <TouchableOpacity style={styles.editIconSmall} onPress={() => handleEditField('linkedIn')}>
+            <TouchableOpacity style={styles.editIconSmall} onPress={() => handleEditField('letterboxd')}>
               <Text style={styles.editIconText}>✎</Text>
             </TouchableOpacity>
           </View>
@@ -970,7 +970,7 @@ export const ProfileScreen: React.FC = () => {
               {editField === 'name' ? 'İsim Düzenle' : 
                editField === 'username' ? 'Kullanıcı Adı Düzenle' : 
                editField === 'bio' ? 'Biyografi Düzenle' :
-               'LinkedIn Linki Düzenle'}
+               'Letterboxd Linki Düzenle'}
             </Text>
             
             <TextInput
@@ -984,18 +984,18 @@ export const ProfileScreen: React.FC = () => {
                 editField === 'name' ? 'Adınız' :
                 editField === 'username' ? 'Kullanıcı adınız' :
                 editField === 'bio' ? 'Kendinizi tanıtın...' :
-                'LinkedIn profil linkiniz (örn: linkedin.com/in/kullaniciadi)'
+                'Letterboxd profil linkiniz (örn: letterboxd.com/kullaniciadi)'
               }
               placeholderTextColor="#666"
               multiline={editField === 'bio'}
               numberOfLines={editField === 'bio' ? 4 : 1}
-              autoCapitalize={editField === 'username' ? 'none' : editField === 'linkedIn' ? 'none' : 'words'}
-              keyboardType={editField === 'linkedIn' ? 'url' : 'default'}
+              autoCapitalize={editField === 'username' ? 'none' : editField === 'letterboxd' ? 'none' : 'words'}
+              keyboardType={editField === 'letterboxd' ? 'url' : 'default'}
             />
             
-            {editField === 'linkedIn' && (
+            {editField === 'letterboxd' && (
               <Text style={styles.helpText}>
-                LinkedIn linkinizi girebilir veya boş bırakarak silebilirsiniz.
+                Letterboxd linkinizi girebilir veya boş bırakarak silebilirsiniz.
               </Text>
             )}
             
@@ -1497,29 +1497,29 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12,
   },
-  linkedInRow: {
+  letterboxdRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginTop: 12,
     marginBottom: 8,
   },
-  linkedInLinkContainer: {
+  letterboxdLinkContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flex: 1,
   },
-  linkedInIcon: {
+  letterboxdIcon: {
     fontSize: 16,
   },
-  linkedInLink: {
-    color: '#0077B5',
+  letterboxdLink: {
+    color: '#00D735',
     fontSize: 14,
     textDecorationLine: 'underline',
     flex: 1,
   },
-  linkedInPlaceholder: {
+  letterboxdPlaceholder: {
     color: '#666',
     fontSize: 14,
     fontStyle: 'italic',

@@ -13,6 +13,7 @@ import {
   Animated,
   Modal,
   PanResponder,
+  Linking,
 } from 'react-native';
 import { useCoreEngine } from '../core/CoreEngine';
 import { firestoreService } from '../services/FirestoreService';
@@ -804,6 +805,26 @@ export const EnhancedMatchCard: React.FC<{
           {getBio() && (
             <Text style={styles.bio}>{getBio()}</Text>
           )}
+          
+          {/* Letterboxd Link */}
+          {user.letterboxdLink && user.letterboxdLink.trim() ? (
+            <TouchableOpacity 
+              style={styles.letterboxdLinkContainer}
+              onPress={() => {
+                let url = user.letterboxdLink.trim();
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                  url = `https://${url}`;
+                }
+                Linking.openURL(url).catch(err => {
+                  console.error('Letterboxd URL açılamadı:', err);
+                  Alert.alert('Hata', 'Letterboxd linki açılamadı');
+                });
+              }}
+            >
+              <Text style={styles.letterboxdIcon}>🎬</Text>
+              <Text style={styles.letterboxdLink}>{user.letterboxdLink}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* Interests */}
@@ -1357,6 +1378,9 @@ export const MatchScreen: React.FC = () => {
             ? match.watchedContent.filter((w: any) => w && typeof w === 'object' && (w.title || w.movieTitle))
             : [];
           
+          // Get Letterboxd link
+          const letterboxdLink = match.letterboxdLink || match.socialLinks?.letterboxd || match.social?.socialLinks?.letterboxd || '';
+          
           return {
             ...match,
             id: userId,
@@ -1371,6 +1395,7 @@ export const MatchScreen: React.FC = () => {
             interests,
             favorites,
             watchedContent,
+            letterboxdLink,
           };
         });
       
@@ -1762,11 +1787,7 @@ export const MatchScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        scrollEnabled={true}
-        bounces={true}
-      >
+      <View style={styles.mainContent}>
         <View style={styles.cardSection}>
           {currentUser && currentUser.id ? (
             <EnhancedMatchCard
@@ -1813,7 +1834,7 @@ export const MatchScreen: React.FC = () => {
             </View>
           )}
         </View>
-      </ScrollView>
+      </View>
 
       {/* Onboarding Modal */}
       <SwipeOnboardingModal
@@ -2066,6 +2087,22 @@ const styles = StyleSheet.create({
     color: '#BBBBBB',
     fontSize: 13,
     lineHeight: 18,
+    marginBottom: 8,
+  },
+  letterboxdLinkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  letterboxdIcon: {
+    fontSize: 14,
+  },
+  letterboxdLink: {
+    color: '#00D735',
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -2330,37 +2367,41 @@ const styles = StyleSheet.create({
     height: 20,
   },
   footer: {
-    paddingVertical: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     alignItems: 'center',
     backgroundColor: '#0A0A0A',
+    borderTopWidth: 1,
+    borderTopColor: '#1A1A1A',
   },
   footerText: {
     color: '#CCCCCC',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   swipeLimitContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   swipeLimitText: {
     color: '#CCCCCC',
-    fontSize: 10,
-    marginRight: 8,
+    fontSize: 9,
+    marginRight: 4,
   },
   premiumButton: {
     backgroundColor: '#E50914',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   premiumButtonText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
   },
   loadingContainer: {
