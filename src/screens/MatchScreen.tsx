@@ -65,6 +65,7 @@ export const EnhancedMatchCard: React.FC<{
   const rotate = useRef(new Animated.Value(0)).current;
   const likeOpacity = useRef(new Animated.Value(0)).current;
   const nopeOpacity = useRef(new Animated.Value(0)).current;
+  const undoOpacity = useRef(new Animated.Value(0)).current; // Geri alma göstergesi
 
   // Safe getters - prevent any non-string values
   const getName = () => {
@@ -243,14 +244,28 @@ export const EnhancedMatchCard: React.FC<{
         const absDx = Math.abs(gestureState.dx);
         const absDy = Math.abs(gestureState.dy);
         
-        // Eğer dikey hareket yatay hareketten daha fazla ise, swipe'ı iptal et
-        if (absDy > absDx * 1.2) {
+        // Aşağı kaydırma - Geri alma göstergesi
+        if (gestureState.dy > 50 && absDy > absDx * 1.2 && onUndo) {
+          setIsSwipeActive(true);
+          // Kartı aşağı hareket ettir
+          pan.setValue({ x: 0, y: gestureState.dy });
+          // Geri alma göstergesini göster
+          undoOpacity.setValue(Math.min(gestureState.dy / 150, 1));
+          likeOpacity.setValue(0);
+          nopeOpacity.setValue(0);
+          rotate.setValue(0);
+          return;
+        }
+        
+        // Eğer dikey hareket yatay hareketten daha fazla ise (yukarı scroll), swipe'ı iptal et
+        if (absDy > absDx * 1.2 && gestureState.dy < 50) {
           // Scroll yapılacak, swipe animasyonunu uygulama
           setIsSwipeActive(false);
           pan.setValue({ x: 0, y: 0 });
           rotate.setValue(0);
           likeOpacity.setValue(0);
           nopeOpacity.setValue(0);
+          undoOpacity.setValue(0);
           return;
         }
         
@@ -270,12 +285,15 @@ export const EnhancedMatchCard: React.FC<{
           if (allowSwipeRight && dx > 50) {
             likeOpacity.setValue(Math.min(dx / 100, 1));
             nopeOpacity.setValue(0);
+            undoOpacity.setValue(0);
           } else if (dx < -50) {
             nopeOpacity.setValue(Math.min(Math.abs(dx) / 100, 1));
             likeOpacity.setValue(0);
+            undoOpacity.setValue(0);
           } else {
             likeOpacity.setValue(0);
             nopeOpacity.setValue(0);
+            undoOpacity.setValue(0);
           }
         }
       },
@@ -288,7 +306,7 @@ export const EnhancedMatchCard: React.FC<{
           // Aşağı kaydırıldı, geri alma işlemi
           Animated.parallel([
             Animated.spring(pan, {
-              toValue: { x: 0, y: 0 },
+              toValue: { x: 0, y: screenHeight }, // Kartı ekranın dışına taşı
               useNativeDriver: true,
             }),
             Animated.spring(rotate, {
@@ -305,9 +323,32 @@ export const EnhancedMatchCard: React.FC<{
               duration: 200,
               useNativeDriver: true,
             }),
+            Animated.timing(undoOpacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
           ]).start(() => {
+            // Animasyon bitince geri alma işlemini yap ve kartı sıfırla
+            pan.setValue({ x: 0, y: 0 });
             onUndo();
           });
+          return;
+        }
+        
+        // Aşağı kaydırma yeterli değilse geri dön
+        if (gestureState.dy > 50 && absDy > absDx * 1.2 && gestureState.dy <= 150) {
+          Animated.parallel([
+            Animated.spring(pan, {
+              toValue: { x: 0, y: 0 },
+              useNativeDriver: true,
+            }),
+            Animated.timing(undoOpacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start();
           return;
         }
         
@@ -449,7 +490,7 @@ export const EnhancedMatchCard: React.FC<{
       ]}
       {...panResponder.panHandlers}
     >
-      {/* Like/Nope Indicators */}
+      {/* Like/Nope/Undo Indicators */}
       {allowSwipeRight && (
         <Animated.View style={[styles.likeIndicator, { opacity: likeOpacity }]}>
           <Text style={styles.likeText}>BEĞEN</Text>
@@ -458,6 +499,11 @@ export const EnhancedMatchCard: React.FC<{
       <Animated.View style={[styles.nopeIndicator, { opacity: nopeOpacity }]}>
         <Text style={styles.nopeText}>{swipeLeftText}</Text>
       </Animated.View>
+      {onUndo && (
+        <Animated.View style={[styles.undoIndicator, { opacity: undoOpacity }]}>
+          <Text style={styles.undoText}>GERİ AL</Text>
+        </Animated.View>
+      )}
 
       {/* Photo Section */}
       <View style={styles.photoSection}>
@@ -1538,6 +1584,24 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   nopeText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  undoIndicator: {
+    position: 'absolute',
+    top: 20,
+    alignSelf: 'center',
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    zIndex: 1000,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  undoText: {
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',

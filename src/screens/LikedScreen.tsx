@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -199,6 +200,13 @@ export const LikedScreen: React.FC = () => {
   useEffect(() => {
     loadLikedUsers();
   }, []);
+
+  // Ekran focus olduğunda verileri yenile
+  useFocusEffect(
+    useCallback(() => {
+      loadLikedUsers();
+    }, [])
+  );
 
   const fetchUsersByIds = async (
     userIds: string[], 
