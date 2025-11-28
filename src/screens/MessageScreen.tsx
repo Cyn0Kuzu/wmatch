@@ -541,6 +541,12 @@ export const MessageScreen: React.FC = () => {
         // Cleanup previous listener
         if (chatListUnsubscribeRef.current) {
           chatListUnsubscribeRef.current();
+          chatListUnsubscribeRef.current = null;
+        }
+
+        // Tümü filtresinde gerçek zamanlı dinleyiciyi kapatıp manuel yükleme yap
+        if (filterType === 'all') {
+          return;
         }
         
         chatListUnsubscribeRef.current = firestoreService.listenToChatList(
@@ -548,7 +554,7 @@ export const MessageScreen: React.FC = () => {
           async (chats) => {
             // Only update if we're showing active matches (not unmatched or blocked)
             // For unmatched/blocked, we'll reload manually
-            if (filterType === 'all' || filterType === 'unread' || filterType === 'read') {
+            if (filterType === 'unread' || filterType === 'read') {
               // Enhance chats with real-time typing status
               // Note: Typing status is already included in getChatList, so we can use it directly
               const enhancedChats = chats;
@@ -635,7 +641,9 @@ export const MessageScreen: React.FC = () => {
           userMap.set(chat.id, {
             ...chat,
             category: 'active',
-            categoryLabel: 'Aktif'
+            categoryLabel: 'Aktif',
+            isBlocked: false,
+            isUnmatched: false,
           });
         });
         
@@ -644,7 +652,9 @@ export const MessageScreen: React.FC = () => {
           userMap.set(chat.id, {
             ...chat,
             category: 'unmatched',
-            categoryLabel: 'Bitti'
+            categoryLabel: 'Bitti',
+            isUnmatched: true,
+            isBlocked: false,
           });
         });
         
@@ -653,7 +663,9 @@ export const MessageScreen: React.FC = () => {
           userMap.set(chat.id, {
             ...chat,
             category: 'blocked',
-            categoryLabel: 'Engel'
+            categoryLabel: 'Engel',
+            isBlocked: true,
+            isUnmatched: false,
           });
         });
         
@@ -1214,6 +1226,7 @@ export const MessageScreen: React.FC = () => {
                       ...userDoc,
                       bio: userDoc.bio || userDoc.biography || userDoc.profile?.bio || '',
                       biography: userDoc.biography || userDoc.bio || userDoc.profile?.bio || '',
+                      letterboxdLink: userDoc.letterboxdLink || userDoc.socialLinks?.letterboxd || userDoc.social?.socialLinks?.letterboxd || '',
                       favorites,
                       watchedContent,
                     });
@@ -2083,14 +2096,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   filterContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
   },
   filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: '#1A1A1A',
     borderWidth: 1,
     borderColor: '#2A2A2A',
@@ -2101,7 +2114,7 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     color: '#CCCCCC',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   filterButtonTextActive: {

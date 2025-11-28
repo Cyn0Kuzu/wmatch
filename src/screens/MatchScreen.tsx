@@ -674,6 +674,9 @@ export const EnhancedMatchCard: React.FC<{
     outputRange: ['-15deg', '0deg', '15deg'],
   });
 
+  const normalizedLeftText = (swipeLeftText || '').toLocaleUpperCase('tr-TR');
+  const isUndoLeftSwipe = normalizedLeftText.includes('GERİ') || normalizedLeftText.includes('GERI');
+
   return (
     <Animated.View
       style={[
@@ -700,9 +703,15 @@ export const EnhancedMatchCard: React.FC<{
           <Text style={styles.likeText}>BEĞEN</Text>
         </Animated.View>
       )}
-      <Animated.View style={[styles.nopeIndicator, { opacity: nopeOpacity }]}>
-        <Text style={styles.nopeText}>{swipeLeftText}</Text>
-      </Animated.View>
+      {isUndoLeftSwipe ? (
+        <Animated.View style={[styles.undoLeftIndicator, { opacity: nopeOpacity }]}>
+          <Text style={styles.undoLeftText}>{swipeLeftText}</Text>
+        </Animated.View>
+      ) : (
+        <Animated.View style={[styles.nopeIndicator, { opacity: nopeOpacity }]}>
+          <Text style={styles.nopeText}>{swipeLeftText}</Text>
+        </Animated.View>
+      )}
       {onUndo && (
         <Animated.View style={[styles.undoIndicator, { opacity: undoOpacity }]}>
           <Text style={styles.undoText}>GERİ AL</Text>
@@ -1768,6 +1777,11 @@ export const MatchScreen: React.FC = () => {
             <TouchableOpacity style={styles.emptyRefreshButton} onPress={loadMatches}>
               <Text style={styles.emptyRefreshButtonText}>Yenile</Text>
             </TouchableOpacity>
+            {swipeHistory.length > 0 && (
+              <TouchableOpacity style={styles.emptyUndoButton} onPress={handleUndo}>
+                <Text style={styles.emptyUndoButtonText}>Geri Al</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -1937,6 +1951,24 @@ const styles = StyleSheet.create({
   nopeText: {
     color: '#FFFFFF',
     fontSize: 24,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  undoLeftIndicator: {
+    position: 'absolute',
+    top: 20,
+    alignSelf: 'center',
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    zIndex: 1000,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  undoLeftText: {
+    color: '#FFFFFF',
+    fontSize: 22,
     fontWeight: 'bold',
     letterSpacing: 2,
   },
@@ -2453,6 +2485,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   emptyRefreshButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyUndoButton: {
+    marginTop: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  emptyUndoButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',

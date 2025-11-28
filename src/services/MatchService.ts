@@ -12,9 +12,13 @@ export interface MatchProfile {
   username: string;
   profilePhotos?: string[];
   bio?: string;
+  biography?: string;
+  letterboxdLink?: string;
   age?: number;
   gender?: string;
   interests?: string[];
+  social?: Record<string, any>;
+  socialLinks?: Record<string, any>;
   profile: {
     bio?: string;
     location?: string;
@@ -212,9 +216,13 @@ export class MatchService {
                     username: user.username && typeof user.username === 'string' ? user.username : `user_${String(matchUserId).substring(0, 8)}`,
                     profilePhotos: Array.isArray(user.profilePhotos) ? user.profilePhotos.filter((p: any) => p && typeof p === 'string') : [],
                     bio: fullProfile.bio && typeof fullProfile.bio === 'string' ? fullProfile.bio : '',
+                    biography: userDoc?.biography || fullProfile.bio || '',
+                    letterboxdLink: userDoc?.letterboxdLink || userDoc?.socialLinks?.letterboxd || userDoc?.social?.socialLinks?.letterboxd || '',
                     age: fullProfile.age && typeof fullProfile.age === 'number' ? fullProfile.age : 0,
                     gender: fullProfile.gender && typeof fullProfile.gender === 'string' ? fullProfile.gender : '',
                     interests: Array.isArray(fullProfile.interests) ? fullProfile.interests.filter((i: any) => i && typeof i === 'string') : [],
+                    social: userDoc?.social || {},
+                    socialLinks: userDoc?.socialLinks || userDoc?.social?.socialLinks || {},
                     profile: {
                       bio: fullProfile.bio || '',
                       location: fullProfile.location || '',
