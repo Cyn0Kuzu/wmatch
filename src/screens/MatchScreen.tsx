@@ -33,6 +33,88 @@ const { width, height } = Dimensions.get('window');
 const HORIZONTAL_CARD_WIDTH = 120; // Sabit genişlik
 const HORIZONTAL_CARD_HEIGHT = HORIZONTAL_CARD_WIDTH * 1.5; // Standart poster oranı
 
+// Match Effect Modal Styles
+const matchStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: width * 0.85,
+    borderWidth: 2,
+    borderColor: '#E50914',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  matchTitle: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#E50914',
+    marginBottom: 16,
+    letterSpacing: 2,
+  },
+  sparkle: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+  },
+  photosContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    justifyContent: 'center',
+  },
+  photoWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#E50914',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+  heartIcon: {
+    marginHorizontal: 20,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#CCCCCC',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  closeButton: {
+    backgroundColor: '#E50914',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    minWidth: 150,
+  },
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
+
 // Match Effect Modal Component
 const MatchEffectModal: React.FC<{
   visible: boolean;
