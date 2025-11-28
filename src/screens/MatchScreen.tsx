@@ -2445,6 +2445,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
+  emptyRefreshButton: {
+    backgroundColor: '#E50914',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  emptyRefreshButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   imagePreviewContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
