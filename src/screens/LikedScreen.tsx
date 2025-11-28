@@ -308,8 +308,7 @@ export const LikedScreen: React.FC = () => {
       // 1. Benim beğendiklerim - SADECE henüz match olmamışlar
       const fetchedLikedByMe = await fetchUsersByIds(myLikedIds, matchedIds, matchMap, likedMovieMap);
       const nonMatchedLikedByMe = fetchedLikedByMe.filter(u => !u.isMatched);
-      setLikedByMe(nonMatchedLikedByMe);
-
+      
       // 2. Beni beğenenler - SADECE henüz match olmamışlar
       const allUsers = await firestoreService.getAllUsers();
       const usersWhoLikedMe = allUsers.filter(u => {
@@ -337,7 +336,50 @@ export const LikedScreen: React.FC = () => {
       
       const likedMeIds = usersWhoLikedMe.map(u => u.id);
       const fetchedLikedMe = await fetchUsersByIds(likedMeIds, matchedIds, matchMap, likedMeMovieMap);
-      setLikedMe(fetchedLikedMe);
+      
+      // 3. MATCH KONTROLÜ: Eğer bir kullanıcı hem beğendiklerim hem de beni beğenenler listesindeyse, bu bir match demektir
+      const likedByMeIds = new Set(nonMatchedLikedByMe.map(u => u.id));
+      const likedMeIdsSet = new Set(fetchedLikedMe.map(u => u.id));
+      
+      // Match olan kullanıcıları bul
+      const matchedUserIds = new Set<string>();
+      nonMatchedLikedByMe.forEach(u => {
+        if (likedMeIdsSet.has(u.id)) {
+          matchedUserIds.add(u.id);
+        }
+      });
+      
+      // Match olan kullanıcıları her iki listeden de çıkar ve match olarak kaydet
+      if (matchedUserIds.size > 0) {
+        for (const matchedUserId of matchedUserIds) {
+          try {
+            const matchedUser = nonMatchedLikedByMe.find(u => u.id === matchedUserId) || 
+                               fetchedLikedMe.find(u => u.id === matchedUserId);
+            
+            if (matchedUser) {
+              // Match olarak kaydet
+              const matchedMovie = likedMovieMap.get(matchedUserId) || likedMeMovieMap.get(matchedUserId) || null;
+              await firestoreService.saveMatch(user.uid, matchedUserId, {
+                matchedAt: Timestamp.now(),
+                matchedMovie: matchedMovie
+              });
+            }
+          } catch (error) {
+            console.error(`Error saving match for user ${matchedUserId}:`, error);
+          }
+        }
+        
+        // Match olan kullanıcıları listeden çıkar
+        const filteredLikedByMe = nonMatchedLikedByMe.filter(u => !matchedUserIds.has(u.id));
+        const filteredLikedMe = fetchedLikedMe.filter(u => !matchedUserIds.has(u.id));
+        
+        setLikedByMe(filteredLikedByMe);
+        setLikedMe(filteredLikedMe);
+      } else {
+        // Match yoksa normal şekilde ayarla
+        setLikedByMe(nonMatchedLikedByMe);
+        setLikedMe(fetchedLikedMe);
+      }
 
     } catch (error) {
       console.error('Error loading liked users:', error);

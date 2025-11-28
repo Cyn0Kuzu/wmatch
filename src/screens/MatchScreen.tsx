@@ -28,9 +28,130 @@ import { SwipeOnboardingModal } from '../components/ui/SwipeOnboardingModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 // Horizontal scroll için kart boyutu
 const HORIZONTAL_CARD_WIDTH = 120; // Sabit genişlik
 const HORIZONTAL_CARD_HEIGHT = HORIZONTAL_CARD_WIDTH * 1.5; // Standart poster oranı
+
+// Match Effect Modal Component
+const MatchEffectModal: React.FC<{
+  visible: boolean;
+  matchedUser: any;
+  onClose: () => void;
+  currentUserPhoto?: string;
+}> = ({ visible, matchedUser, onClose, currentUserPhoto }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const sparkleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      // Reset animations
+      scaleAnim.setValue(0);
+      opacityAnim.setValue(0);
+      sparkleAnim.setValue(0);
+
+      // Start animations
+      Animated.parallel([
+        Animated.sequence([
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 1.1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(sparkleAnim, {
+              toValue: 1,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(sparkleAnim, {
+              toValue: 0,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+          ])
+        ),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!matchedUser) return null;
+
+  const userPhoto = matchedUser.profilePhotos && matchedUser.profilePhotos.length > 0
+    ? matchedUser.profilePhotos[0]
+    : matchedUser.photoURL || 'https://via.placeholder.com/150/1a1a1a/666?text=No+Photo';
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={matchStyles.container}>
+        <Animated.View style={[matchStyles.content, { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }]}>
+          <View style={matchStyles.header}>
+            <Text style={matchStyles.matchTitle}>EŞLEŞME!</Text>
+            <Animated.View style={[matchStyles.sparkle, { opacity: sparkleAnim }]}>
+              <Icon name={Icons.heart} size={40} color="#E50914" />
+            </Animated.View>
+          </View>
+
+          <View style={matchStyles.photosContainer}>
+            <View style={matchStyles.photoWrapper}>
+              <Image
+                source={{ uri: currentUserPhoto || userPhoto }}
+                style={matchStyles.photo}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={matchStyles.heartIcon}>
+              <Icon name={Icons.heart} size={50} color="#E50914" />
+            </View>
+            <View style={matchStyles.photoWrapper}>
+              <Image
+                source={{ uri: userPhoto }}
+                style={matchStyles.photo}
+                resizeMode="cover"
+              />
+            </View>
+          </View>
+
+          <Text style={matchStyles.userName}>
+            {matchedUser.firstName || matchedUser.username || 'Kullanıcı'} ile eşleştiniz!
+          </Text>
+          <Text style={matchStyles.subtitle}>
+            Artık mesajlaşabilirsiniz
+          </Text>
+
+          <TouchableOpacity style={matchStyles.closeButton} onPress={onClose}>
+            <Text style={matchStyles.closeButtonText}>Devam Et</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 
 // Enhanced Match Card Component
 export const EnhancedMatchCard: React.FC<{ 
@@ -1014,6 +1135,10 @@ export const MatchScreen: React.FC = () => {
   const [swipeLimits, setSwipeLimits] = useState<SwipeLimits | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [swipeHistory, setSwipeHistory] = useState<any[]>([]); // Geri alma için
+  
+  // Match effect states
+  const [showMatchEffect, setShowMatchEffect] = useState(false);
+  const [matchedUser, setMatchedUser] = useState<any>(null);
 
   useEffect(() => {
     loadMatches();
@@ -1321,8 +1446,22 @@ export const MatchScreen: React.FC = () => {
       ]);
       
       if (isMatch) {
-        Alert.alert('Eşleşme!', `${currentUser.username} ile eşleştiniz!`);
+        // Match kaydet
         await saveMatch(user.uid, currentUser, currentMovieTitle);
+        
+        // Current user'ın fotoğrafını al
+        const currentUserDoc = await firestoreService.getUserDocument(user.uid);
+        const currentUserPhoto = currentUserDoc?.profilePhotos?.[0] || currentUserDoc?.photoURL || null;
+        
+        // Match efekti göster
+        setMatchedUser({ ...currentUser, currentUserPhoto });
+        setShowMatchEffect(true);
+        
+        // 3 saniye sonra match efektini kapat
+        setTimeout(() => {
+          setShowMatchEffect(false);
+          setMatchedUser(null);
+        }, 3000);
       }
 
       // Limitleri yenile
@@ -1609,6 +1748,17 @@ export const MatchScreen: React.FC = () => {
             console.error('Error saving onboarding preference:', error);
             setShowOnboarding(false);
           }
+        }}
+      />
+
+      {/* Match Effect Modal */}
+      <MatchEffectModal
+        visible={showMatchEffect}
+        matchedUser={matchedUser}
+        currentUserPhoto={matchedUser?.currentUserPhoto}
+        onClose={() => {
+          setShowMatchEffect(false);
+          setMatchedUser(null);
         }}
       />
     </SafeAreaView>
