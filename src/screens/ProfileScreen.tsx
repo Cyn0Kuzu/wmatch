@@ -28,6 +28,8 @@ import { realTimeWatchingService } from '../services/RealTimeWatchingService';
 import { MovieDetailModal } from '../components/ui/MovieDetailModal';
 import { Icon, Icons } from '../components/ui/IconComponent';
 import { spacing } from '../core/theme';
+import { purchaseService } from '../services/PurchaseService';
+import { premiumService } from '../services/PremiumService';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 3;
@@ -55,6 +57,77 @@ export const ProfileScreen: React.FC = () => {
     isChecking: false,
     message: '',
   });
+  const [premiumActionLoading, setPremiumActionLoading] = useState(false);
+  const getPremiumExpiryText = () => {
+    const expiresAt = profile?.social?.premiumExpiresAt;
+    if (!expiresAt) return null;
+    try {
+      if (typeof expiresAt.toDate === 'function') {
+        return expiresAt.toDate().toLocaleDateString('tr-TR');
+      }
+      if (expiresAt.seconds) {
+        return new Date(expiresAt.seconds * 1000).toLocaleDateString('tr-TR');
+      }
+      return new Date(expiresAt).toLocaleDateString('tr-TR');
+    } catch (error) {
+      console.error('Error formatting premium expiry date:', error);
+      return null;
+    }
+  };
+
+  const cancelPremiumMembership = async (userId: string) => {
+    try {
+      setPremiumActionLoading(true);
+      const success = await premiumService.removePremium(userId);
+      if (success) {
+        Alert.alert('Başarılı', 'Premium üyeliğiniz iptal edildi.');
+        await loadProfile();
+      } else {
+        Alert.alert('Hata', 'Premium iptali gerçekleştirilemedi. Lütfen tekrar deneyin.');
+      }
+    } catch (error) {
+      console.error('Error removing premium membership:', error);
+      Alert.alert('Hata', 'Premium iptal edilirken bir hata oluştu.');
+    } finally {
+      setPremiumActionLoading(false);
+    }
+  };
+
+  const handlePremiumManagePress = async () => {
+    if (premiumActionLoading) return;
+    const user = await authService.getCurrentUser();
+    if (!user || !profile) return;
+
+    if (profile?.social?.isPremium) {
+      Alert.alert(
+        'Premiumu İptal Et',
+        'Premium üyeliğinizi iptal etmek istediğinizden emin misiniz?',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          {
+            text: 'İptal Et',
+            style: 'destructive',
+            onPress: () => cancelPremiumMembership(user.uid),
+          },
+        ],
+      );
+      return;
+    }
+
+    try {
+      setPremiumActionLoading(true);
+      const result = await purchaseService.showPremiumPurchaseModal(user.uid);
+      if (result?.success) {
+        await loadProfile();
+      }
+    } catch (error) {
+      console.error('Error purchasing premium:', error);
+      Alert.alert('Hata', 'Premium satın alınırken bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setPremiumActionLoading(false);
+    }
+  };
+
   
   // Photo selection state
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -131,6 +204,14 @@ export const ProfileScreen: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [editValue, editField, profile]);
 
+  const isPremium = Boolean(profile?.social?.isPremium);
+  const premiumExpiryText = getPremiumExpiryText();
+  const premiumInfoText = isPremium
+    ? premiumExpiryText
+      ? `Premium üyeliğiniz aktif. Yenileme: ${premiumExpiryText}.`
+      : 'Premium üyeliğiniz aktif.'
+    : 'Premium ile sınırsız swipe, sınırsız geri alma ve gelişmiş filtreleri kullanabilirsiniz.';
+
   const loadProfile = async (retryCount = 0) => {
     try {
       setLoading(true);
@@ -203,6 +284,7 @@ export const ProfileScreen: React.FC = () => {
         phone: userDoc.phone || '',
         status: userDoc.status || 'active',
         isOnline: userDoc.isOnline || false,
+        social: userDoc.social || {},
       });
 
       // Get real favorites and watched content with full details
@@ -946,6 +1028,43 @@ export const ProfileScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Premium Section */}
+        <View style={styles.premiumCard}>
+          <View style={styles.premiumCardHeader}>
+            <Text style={styles.premiumTitle}>Premium Hesap</Text>
+            <View style={[
+              styles.premiumStatusBadge,
+              isPremium ? styles.premiumStatusBadgeActive : styles.premiumStatusBadgeInactive
+            ]}>
+              <Text style={[
+                styles.premiumStatusText,
+                isPremium ? styles.premiumStatusTextActive : styles.premiumStatusTextInactive
+              ]}>
+                {isPremium ? 'Aktif' : 'Pasif'}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.premiumDescription}>{premiumInfoText}</Text>
+          {isPremium && premiumExpiryText && (
+            <Text style={styles.premiumExpiryText}>
+              Yenileme tarihi: {premiumExpiryText}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={[
+              styles.premiumActionButton,
+              isPremium ? styles.premiumCancelButton : styles.premiumUpgradeButton,
+              premiumActionLoading && styles.premiumButtonDisabled,
+            ]}
+            onPress={handlePremiumManagePress}
+            disabled={premiumActionLoading}
+          >
+            <Text style={styles.premiumActionButtonText}>
+              {premiumActionLoading ? 'İşleniyor...' : (isPremium ? 'Premiumu İptal Et' : 'Premium Ol')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.bottomSpace} />
       </ScrollView>
 
@@ -1552,6 +1671,80 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 24,
     gap: 12,
+  },
+  premiumCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    gap: 12,
+  },
+  premiumCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  premiumTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  premiumDescription: {
+    color: '#CCCCCC',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  premiumExpiryText: {
+    color: '#AAAAAA',
+    fontSize: 13,
+  },
+  premiumStatusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  premiumStatusBadgeActive: {
+    borderColor: '#4CAF50',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  premiumStatusBadgeInactive: {
+    borderColor: '#E50914',
+    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+  },
+  premiumStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  premiumStatusTextActive: {
+    color: '#4CAF50',
+  },
+  premiumStatusTextInactive: {
+    color: '#E50914',
+  },
+  premiumActionButton: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  premiumUpgradeButton: {
+    backgroundColor: '#E50914',
+  },
+  premiumCancelButton: {
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+  },
+  premiumButtonDisabled: {
+    opacity: 0.6,
+  },
+  premiumActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   deleteAccountBtn: {
     backgroundColor: '#1A1A1A',
