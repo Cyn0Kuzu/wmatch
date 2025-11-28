@@ -955,7 +955,7 @@ export const RegisterScreen: React.FC = () => {
           </View>
           <Text style={styles.privacyText}>
             <Text style={styles.privacyLinkText} onPress={() => {
-              const privacyUrl = 'https://[KULLANICI_ADI].github.io/[REPO_ADI]/';
+              const privacyUrl = 'https://cyn0kuzu.github.io/wmatch/';
               Linking.openURL(privacyUrl).catch(err => {
                 console.error('URL açılamadı:', err);
                 Alert.alert('Hata', 'Gizlilik politikası sayfası açılamadı.');
@@ -965,7 +965,7 @@ export const RegisterScreen: React.FC = () => {
             </Text>
             {' '}ve{' '}
             <Text style={styles.privacyLinkText} onPress={() => {
-              const privacyUrl = 'https://[KULLANICI_ADI].github.io/[REPO_ADI]/';
+              const privacyUrl = 'https://cyn0kuzu.github.io/wmatch/';
               Linking.openURL(privacyUrl).catch(err => {
                 console.error('URL açılamadı:', err);
                 Alert.alert('Hata', 'Gizlilik politikası sayfası açılamadı.');

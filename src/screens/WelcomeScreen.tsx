@@ -33,7 +33,7 @@ export const WelcomeScreen: React.FC = () => {
   };
 
   const handlePrivacyLink = () => {
-    const privacyUrl = 'https://[KULLANICI_ADI].github.io/[REPO_ADI]/';
+    const privacyUrl = 'https://cyn0kuzu.github.io/wmatch/';
     Linking.openURL(privacyUrl).catch(err => {
       console.error('URL açılamadı:', err);
       Alert.alert('Hata', 'Gizlilik politikası sayfası açılamadı. Lütfen daha sonra tekrar deneyin.');
