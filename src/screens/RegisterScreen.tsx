@@ -1617,6 +1617,7 @@ const styles = StyleSheet.create({
     color: '#10B981',
   },
   ageTextInvalid: {
+    color: '#E50914',
   },
   privacyContainer: {
     marginTop: spacing.md,
@@ -1658,8 +1659,6 @@ const styles = StyleSheet.create({
     color: '#E50914',
     textDecorationLine: 'underline',
     fontWeight: '600',
-  },
-    color: '#E50914',
   },
   disabledButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
