@@ -1379,7 +1379,20 @@ export class FirestoreService {
         const userData = userDoc.data() as UserProfile;
         const likedUsers = userData.social?.likedUsers || [];
         
-        const updatedLikedUsers = likedUsers.filter((id: string) => id !== likedUserId);
+        // Mevcut formatı kontrol et (string[] veya object[])
+        const isStringArray = likedUsers.length > 0 && typeof likedUsers[0] === 'string';
+        
+        let updatedLikedUsers: any[];
+        if (isStringArray) {
+          // String array formatı
+          updatedLikedUsers = likedUsers.filter((id: string) => id !== likedUserId);
+        } else {
+          // Object array formatı {userId, likedMovie}
+          updatedLikedUsers = likedUsers.filter((item: any) => {
+            const id = typeof item === 'string' ? item : (item.userId || item);
+            return id !== likedUserId;
+          });
+        }
         
         await updateDoc(userRef, {
           'social.likedUsers': updatedLikedUsers,

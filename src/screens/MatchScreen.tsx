@@ -1223,12 +1223,16 @@ export const MatchScreen: React.FC = () => {
         return;
       }
 
-      // Swipe geçmişine ekle (geri alma için)
+      // Swipe geçmişine ekle (geri alma için) - Detaylı bilgi
       setSwipeHistory(prev => [
         {
           userId: currentUser.id,
+          user: { ...currentUser }, // Kullanıcı objesinin tam kopyası
           action: 'pass',
           index: currentUserIndex,
+          movieId: currentMovieId || null,
+          movieTitle: currentMovie?.title || currentMovie?.name || null,
+          timestamp: Date.now(),
         },
         ...prev.slice(0, 9), // Son 10 swipe'ı tut
       ]);
@@ -1289,16 +1293,6 @@ export const MatchScreen: React.FC = () => {
         return;
       }
 
-      // Swipe geçmişine ekle (geri alma için)
-      setSwipeHistory(prev => [
-        {
-          userId: currentUser.id,
-          action: 'like',
-          index: currentUserIndex,
-        },
-        ...prev.slice(0, 9), // Son 10 swipe'ı tut
-      ]);
-
       // Şu anda izlenen film/dizi bilgisini al
       const currentMovieTitle = currentMovie?.title || currentMovie?.name || null;
       
@@ -1310,6 +1304,22 @@ export const MatchScreen: React.FC = () => {
       }
       
       const isMatch = await checkForMatch(user.uid, currentUser.id);
+      
+      // Swipe geçmişine ekle (geri alma için) - Detaylı bilgi
+      setSwipeHistory(prev => [
+        {
+          userId: currentUser.id,
+          user: { ...currentUser }, // Kullanıcı objesinin tam kopyası
+          action: 'like',
+          index: currentUserIndex,
+          movieId: currentMovieId || null,
+          movieTitle: currentMovieTitle,
+          isMatch: isMatch, // Match durumu
+          timestamp: Date.now(),
+        },
+        ...prev.slice(0, 9), // Son 10 swipe'ı tut
+      ]);
+      
       if (isMatch) {
         Alert.alert('Eşleşme!', `${currentUser.username} ile eşleştiniz!`);
         await saveMatch(user.uid, currentUser, currentMovieTitle);
@@ -1325,7 +1335,7 @@ export const MatchScreen: React.FC = () => {
     }
   };
 
-  // Geri alma işlemi (aşağı kaydırma)
+  // Geri alma işlemi (aşağı kaydırma) - Güçlendirilmiş versiyon
   const handleUndo = async () => {
     try {
       const user = await authService.getCurrentUser();
@@ -1356,20 +1366,104 @@ export const MatchScreen: React.FC = () => {
 
       const lastSwipe = swipeHistory[0];
       
-      // Geri alma kullan
+      if (!lastSwipe.user) {
+        Alert.alert('Hata', 'Geri alınacak kullanıcı bilgisi bulunamadı');
+        return;
+      }
+
+      // Geri alma kullan (useUndo zaten swipe limitini de geri alıyor)
       const undoUsed = await swipeLimitService.useUndo(user.uid);
       if (!undoUsed) {
         Alert.alert('Hata', 'Geri alma işlemi başarısız');
         return;
       }
 
+      // Senaryo 1: LIKE işlemi geri alınıyor
+      if (lastSwipe.action === 'like') {
+        try {
+          // 1. Beğendiklerim listesinden çıkar
+          await firestoreService.removeFromLikedList(user.uid, lastSwipe.userId);
+          
+          // 2. Eğer match varsa, match'i de kaldır
+          if (lastSwipe.isMatch) {
+            await firestoreService.removeMatch(user.uid, lastSwipe.userId);
+          }
+          
+          // 3. SwipedUsers'dan kaldır
+          if (lastSwipe.movieId) {
+            const userKey = `${lastSwipe.userId}_${lastSwipe.movieId}`;
+            setSwipedUsers(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(userKey);
+              return newSet;
+            });
+          }
+          
+          // 4. Kullanıcıyı users listesine geri ekle (doğru pozisyona)
+          const restoredUser = lastSwipe.user;
+          setUsers(prev => {
+            const newUsers = [...prev];
+            // Index'e göre ekle (eğer index geçerliyse)
+            if (lastSwipe.index >= 0 && lastSwipe.index < newUsers.length) {
+              newUsers.splice(lastSwipe.index, 0, restoredUser);
+            } else {
+              // Index geçersizse başa ekle
+              newUsers.unshift(restoredUser);
+            }
+            return newUsers;
+          });
+          
+          // 5. Index'i geri al
+          if (currentUserIndex > 0) {
+            setCurrentUserIndex(prev => prev - 1);
+          }
+        } catch (error) {
+          console.error('Error undoing like:', error);
+          Alert.alert('Hata', 'Beğeni geri alınırken bir hata oluştu');
+          return;
+        }
+      }
+      
+      // Senaryo 2: PASS işlemi geri alınıyor
+      else if (lastSwipe.action === 'pass') {
+        try {
+          // 1. SwipedUsers'dan kaldır
+          if (lastSwipe.movieId) {
+            const userKey = `${lastSwipe.userId}_${lastSwipe.movieId}`;
+            setSwipedUsers(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(userKey);
+              return newSet;
+            });
+          }
+          
+          // 2. Kullanıcıyı users listesine geri ekle (doğru pozisyona)
+          const restoredUser = lastSwipe.user;
+          setUsers(prev => {
+            const newUsers = [...prev];
+            // Index'e göre ekle (eğer index geçerliyse)
+            if (lastSwipe.index >= 0 && lastSwipe.index < newUsers.length) {
+              newUsers.splice(lastSwipe.index, 0, restoredUser);
+            } else {
+              // Index geçersizse başa ekle
+              newUsers.unshift(restoredUser);
+            }
+            return newUsers;
+          });
+          
+          // 3. Index'i geri al
+          if (currentUserIndex > 0) {
+            setCurrentUserIndex(prev => prev - 1);
+          }
+        } catch (error) {
+          console.error('Error undoing pass:', error);
+          Alert.alert('Hata', 'Geçme işlemi geri alınırken bir hata oluştu');
+          return;
+        }
+      }
+
       // Swipe geçmişinden kaldır
       setSwipeHistory(prev => prev.slice(1));
-
-      // Index'i geri al
-      if (currentUserIndex > 0) {
-        setCurrentUserIndex(prev => prev - 1);
-      }
 
       // Limitleri yenile
       await loadSwipeLimits();

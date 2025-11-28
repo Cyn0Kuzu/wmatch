@@ -232,6 +232,36 @@ export class SwipeLimitService {
   }
 
   /**
+   * Swipe limitini geri alır (geri alma işlemi için)
+   */
+  async refundSwipe(userId: string): Promise<boolean> {
+    try {
+      const db = this.firebaseService.getFirestore();
+      const limitsRef = doc(db, 'swipeLimits', userId);
+      const limitsSnap = await getDoc(limitsRef);
+      
+      if (!limitsSnap.exists()) {
+        return false;
+      }
+      
+      const limits = limitsSnap.data() as SwipeLimits;
+      
+      // Swipe sayısını geri al (minimum 0)
+      const updatedSwipesUsed = Math.max(0, limits.dailySwipesUsed - 1);
+      
+      await updateDoc(limitsRef, {
+        dailySwipesUsed: updatedSwipesUsed,
+      });
+      
+      logger.info(`Swipe refunded for user ${userId}. Swipes used: ${updatedSwipesUsed}`, 'SwipeLimitService');
+      return true;
+    } catch (error) {
+      logger.error('Error refunding swipe', 'SwipeLimitService', error);
+      return false;
+    }
+  }
+
+  /**
    * Geri alma kullanır
    */
   async useUndo(userId: string): Promise<boolean> {
